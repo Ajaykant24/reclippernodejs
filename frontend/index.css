@@ -2832,8 +2832,8 @@ body::before,
 .export-header h1 {
   max-width: 860px;
   margin: 0;
-  font-size: clamp(24px, 3.2vw, 44px);
-  line-height: 1;
+  font-size: clamp(36px, 6vw, 72px);
+  line-height: 0.95;
 }
 
 .export-header p {
@@ -2896,7 +2896,7 @@ body::before,
 }
 
 .caption-panel p {
-  min-height: 160px;
+  min-height: 260px;
   margin: 0;
   border: 1px solid var(--border);
   border-radius: 16px;
