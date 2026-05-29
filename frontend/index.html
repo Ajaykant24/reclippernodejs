@@ -1,0 +1,35 @@
+<!-- 
+  MAIN HTML WRAPPER FILE: index.html
+  - Purpose: This is the entry point page loaded by the web browser. 
+  - How it works: It provides a blank layout with a container (<div id="root">), then loads React (main.jsx) which injects the interactive interface.
+  - Editing Tip: You can change the <title> tag text to rename your website tab.
+-->
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    
+    <!-- RESPONSIVENESS: Ensures the page scales beautifully on mobile phones and tablets. -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    
+    <!-- FONTS PRECONNECT: Speeds up loading Google Fonts by making early connections to font servers. -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    
+    <!-- ICONS: Loads Google's Material Symbols Outlined font library used for sidebar navigation icons and button designs. -->
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined" rel="stylesheet" />
+    
+    <!-- BROWSER TAB TITLE: The name that appears at the top of your web browser's tab. -->
+    <title>Reclipper</title>
+  </head>
+  <body>
+    <!-- 
+      INJECTION PORT: The entire React application is mounted inside this blank "root" box.
+      - Never delete this element, or the screen will go blank.
+    -->
+    <div id="root"></div>
+    
+    <!-- JAVASCRIPT LOADER: Tells the browser to run main.jsx, which builds the React app inside the root div. -->
+    <script type="module" src="/main.jsx"></script>
+  </body>
+</html>

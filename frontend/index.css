@@ -1,13 +1,18 @@
+/* 
+  🎨 GLOBAL VARIABLE COLOR THEME (DARK STYLE PRESET):
+  - Purpose: These values control primary colors when the app is in standard dark mode.
+  - How to Edit: Change the Hex codes (like #09090b) to custom values to change the color instantly!
+*/
 :root {
   color-scheme: dark;
-  --bg: #09090b;
-  --surface: #111113;
-  --surface-2: #18181b;
-  --text: rgba(255,255,255,0.9);
-  --text-soft: rgba(255,255,255,0.62);
-  --text-muted: rgba(255,255,255,0.38);
-  --border: rgba(255,255,255,0.1);
-  --accent: #ffdb00;
+  --bg: #09090b;          /* Main screen background backdrop color (Deep dark grey/black) */
+  --surface: #111113;     /* Background color for cards, panels, and inner container boxes */
+  --surface-2: #18181b;   /* Slightly lighter background color for active tabs and hover elements */
+  --text: rgba(255,255,255,0.9);      /* Primary paragraph and title text color (Soft white) */
+  --text-soft: rgba(255,255,255,0.62); /* Secondary descriptive subtitles color */
+  --text-muted: rgba(255,255,255,0.38);/* Dimmed icon labels or placeholder texts color */
+  --border: rgba(255,255,255,0.1);    /* Border lines color mapping */
+  --accent: #ffdb00;      /* Glowing highlight brand accent color (Golden yellow) */
 }
 
 * {
@@ -606,19 +611,24 @@ button {
 }
 
 /* iOS water-glass redesign */
+/* 
+  🎨 GLOBAL VARIABLE COLOR THEME (ACTIVE LIGHT GLASS STYLE PRESET):
+  - Purpose: These values control your active theme (the glossy light blue iOS layout).
+  - How to Edit: Change these values (Hex colors, opacities, glass shadow values) to fully transform your workspace aesthetics.
+*/
 :root {
   color-scheme: light;
-  --bg: #eef8ff;
-  --surface: rgba(255,255,255,0.62);
-  --surface-2: rgba(255,255,255,0.78);
-  --text: #102033;
-  --text-soft: rgba(16,32,51,0.68);
-  --text-muted: rgba(16,32,51,0.44);
-  --border: rgba(96,165,250,0.22);
-  --accent: #0ea5e9;
-  --accent-strong: #0284c7;
-  --glass-shadow: 0 24px 80px rgba(56, 135, 190, 0.18);
-  --glass-shadow-soft: 0 12px 36px rgba(56, 135, 190, 0.14);
+  --bg: #eef8ff;          /* Active workspace base screen color (Very soft pastel cyan sky blue) */
+  --surface: rgba(255,255,255,0.62);   /* Glassmorphic card container background (Semi-transparent white overlay) */
+  --surface-2: rgba(255,255,255,0.78); /* Slightly more solid glass panel for overlays/active items */
+  --text: #102033;        /* Primary body text color (Elegant dark navy/steel blue) */
+  --text-soft: rgba(16,32,51,0.68);    /* Subheading, calendar dates, and minor labels color */
+  --text-muted: rgba(16,32,51,0.44);   /* Dimmed text, search placeholders, or disabled buttons */
+  --border: rgba(96,165,250,0.22);    /* Glassmorphism panel outline borders (Soft translucent sky-blue tint) */
+  --accent: #0ea5e9;      /* Primary interactive active accent highlights (Sky-blue glow) */
+  --accent-strong: #0284c7;            /* Solid sky-blue text shade for highlight badges */
+  --glass-shadow: 0 24px 80px rgba(56, 135, 190, 0.18);      /* Deluxe blurry panel drop shadow */
+  --glass-shadow-soft: 0 12px 36px rgba(56, 135, 190, 0.14); /* Softer drop shadow for minor cards */
 }
 
 html {

@@ -1,0 +1,39 @@
+# Node / Frontend
+frontend/node_modules/
+frontend/dist/
+frontend/.env
+frontend/.env.local
+frontend/.env.development.local
+frontend/.env.test.local
+frontend/.env.production.local
+
+# Python / Backend
+backend/__pycache__/
+backend/*.pyc
+backend/*.pyo
+backend/*.pyd
+backend/.env
+backend/.venv/
+backend/venv/
+backend/ENV/
+backend/env/
+
+# Python data & outputs
+backend/clips/
+backend/data/
+backend/repurpose_outputs/
+
+# IDE / Tooling
+.qodo/
+.sixth/
+.vscode/
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# OS files
+.DS_Store
+Thumbs.db
