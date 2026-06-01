@@ -19,8 +19,7 @@ const EXPORT_SCALE = EXPORT_H / STAGE_H
 const EXACT_CROP_RATIO = 'Exact'
 const DEFAULT_OUTPUT_RATIO = EXACT_CROP_RATIO
 const PREVIEW_VERTICAL_SHIFT = 39
-const TEXT_LINE_LIMIT = 32
-const TEXT_MAX_LINES = 3
+const DEFAULT_WORDS_PER_LINE = 4
 const TEXT_VIDEO_GAP = 14
 const SUBTITLE_VIDEO_GAP = 10
 const EXACT_CROP_VERTICAL_SHIFT = 34
@@ -124,7 +123,7 @@ function makeOverlayImage({ lines, textBox, fontSize, color, align, style, shado
 
   // 2. Custom text hook overlay rendering layer
   const exportFontSize = fontSize * EXPORT_SCALE
-  ctx.font = `800 ${exportFontSize}px Arial, "Segoe UI Emoji", "Apple Color Emoji", sans-serif`
+  ctx.font = `400 ${exportFontSize}px -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", "Segoe UI", "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif`
   ctx.textBaseline = 'top'
   ctx.textAlign = align
   ctx.fillStyle = color
@@ -254,30 +253,80 @@ function formatTime(seconds) {
   return `${m}:${s}`
 }
 
-function wrapText(value) {
-  const words = String(value || '').replace(/\s+/g, ' ').trim().split(' ').filter(Boolean)
+function cleanOverlayText(value) {
+  const cleaned = String(value || '')
+    .replace(/["“”]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+
+  if (!cleaned) return ''
+  return cleaned.charAt(0).toUpperCase() + cleaned.slice(1)
+}
+
+function getOverlayMeasureContext() {
+  if (typeof document === 'undefined') return null
+  const canvas = document.createElement('canvas')
+  return canvas.getContext('2d')
+}
+
+function wrapText(value, maxWidth = 260, fontSize = 20) {
+  const text = cleanOverlayText(value)
+  const words = text.split(' ').filter(Boolean)
   if (!words.length) return []
 
-  const lines = []
-  let currentLine = ''
+  const ctx = getOverlayMeasureContext()
+  const safeMaxWidth = Math.max(80, Number(maxWidth) || 260)
+  const safeFontSize = clamp(Number(fontSize) || 20, 14, 64)
+  const font = `400 ${safeFontSize}px -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", "Segoe UI", "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif`
 
-  for (let index = 0; index < words.length; index += 1) {
-    const word = words[index]
-    currentLine = currentLine ? `${currentLine} ${word}` : word
-
-    if (lines.length === TEXT_MAX_LINES - 1) {
-      const remainder = [currentLine, ...words.slice(index + 1)].filter(Boolean).join(' ')
-      if (remainder) lines.push(remainder)
-      return lines
-    }
-
-    if (currentLine.length >= TEXT_LINE_LIMIT) {
-      lines.push(currentLine)
-      currentLine = ''
-    }
+  if (ctx) {
+    ctx.font = font
   }
 
-  if (currentLine) lines.push(currentLine)
+  const measure = line => {
+    if (ctx) return ctx.measureText(line).width
+    return line.length * safeFontSize * 0.52
+  }
+
+  const lines = []
+  let line = ''
+
+  words.forEach(word => {
+    const testLine = line ? `${line} ${word}` : word
+
+    // Width-only logic: keep adding words until the rendered line reaches cropped-video text width.
+    // Font size can change freely; wrapping always follows the real measured pixel width.
+    if (measure(testLine) <= safeMaxWidth) {
+      line = testLine
+      return
+    }
+
+    if (line) {
+      lines.push(line)
+      line = ''
+    }
+
+    if (measure(word) <= safeMaxWidth) {
+      line = word
+      return
+    }
+
+    // Very long single words are split only as a safety fallback.
+    let chunk = ''
+    Array.from(word).forEach(char => {
+      const testChunk = `${chunk}${char}`
+      if (measure(testChunk) <= safeMaxWidth) {
+        chunk = testChunk
+      } else {
+        if (chunk) lines.push(chunk)
+        chunk = char
+      }
+    })
+    line = chunk
+  })
+
+  if (line) lines.push(line)
+
   return lines
 }
 
@@ -314,13 +363,13 @@ function AlignButton({ active, icon, onClick }) {
 export default function Editor() {
   const navigate = useNavigate()
   const { clipId } = useParams()
-  
+
   // ── HOOKED DOCUMENT REFERENCE POINTERS ──
   const videoRef = useRef(null)         // Active foreground video HTML player
   const bgVideoRef = useRef(null)       // Background video player (plays blurred underneath)
   const logoInputRef = useRef(null)     // Invisible logo image upload click trigger
   const stageRef = useRef(null)         // Absolute stage container div
-  
+
   // Drag coordinates references
   const videoDragRef = useRef(null)
   const textDragRef = useRef(null)
@@ -369,6 +418,7 @@ export default function Editor() {
   const [textStyle, setTextStyle] = useState('plain')
   const [textColor, setTextColor] = useState('#ffffff')
   const [fontSize, setFontSize] = useState(20)
+  const [textWidthPercent, setTextWidthPercent] = useState(92)
   const [textOffsetX, setTextOffsetX] = useState(0)
   const [textOffsetY, setTextOffsetY] = useState(0)
 
@@ -377,7 +427,7 @@ export default function Editor() {
   const [videoDragPos, setVideoDragPos] = useState(null)
   const [textDragPos, setTextDragPos] = useState(null)
   const [snapLines, setSnapLines] = useState({ h: false, v: false }) // Alignment snapped guidelines trigger
-  
+
   // Custom logo states
   const [logo, setLogo] = useState(null)
   const [logoScale, setLogoScale] = useState(1)
@@ -391,12 +441,41 @@ export default function Editor() {
   const [volume, setVolume] = useState(1)
   const [exporting, setExporting] = useState(false)
   const [videoReady, setVideoReady] = useState(false)
-  
+  const [foregroundPlaying, setForegroundPlaying] = useState(false)
+
+  const revealVideoAfterFramePaint = () => {
+    const reveal = () => setVideoReady(true)
+    requestAnimationFrame(() => requestAnimationFrame(reveal))
+  }
+
+  const syncBackgroundVideoToMain = useCallback((force = false) => {
+    const main = videoRef.current
+    const bg = bgVideoRef.current
+    if (!main || !bg) return
+
+    const mainDuration = Number(main.duration || 0)
+    const bgDuration = Number(bg.duration || 0)
+    let targetTime = main.currentTime || 0
+
+    if (mainDuration > 0 && bgDuration > 0 && Math.abs(mainDuration - bgDuration) > 0.25) {
+      const progress = clamp(targetTime / mainDuration, 0, 1)
+      targetTime = progress * bgDuration
+    }
+
+    if (Number.isFinite(targetTime) && (force || Math.abs((bg.currentTime || 0) - targetTime) > 0.05)) {
+      try {
+        bg.currentTime = clamp(targetTime, 0, Math.max(0, bgDuration - 0.05) || targetTime)
+      } catch {
+        // Browser may block currentTime changes until metadata is ready. Next sync will catch it.
+      }
+    }
+  }, [])
+
   // Volume boosts refs (Audio Booster)
   const audioCtxRef = useRef(null)
   const gainNodeRef = useRef(null)
   const sourceNodeRef = useRef(null)
-  
+
   // Dynamic screen sizes listeners
   const [windowSize, setWindowSize] = useState({ w: window.innerWidth, h: window.innerHeight })
 
@@ -430,30 +509,26 @@ export default function Editor() {
     ? clamp(videoDragPos.y, -vh + 30, STAGE_H - 30)
     : clamp(pb.t + vtx.oy, -vh + 30, STAGE_H - 30)
 
-  const lines = useMemo(() => wrapText(customText), [customText])
-
-  const maxLineChars = Math.max(...lines.map(l => l.length), 1)
-
   const videoLeft = vl
   const videoTop = vt
   const videoWidth = vw
   const videoHeight = vh
 
-  const textSideMargin = clamp(videoWidth * 0.1, 22, 44)
-  const maxAllowed = Math.max(90, videoWidth - textSideMargin * 2)
-  const overflowSafeSize = Math.floor(maxAllowed / (maxLineChars * 0.56))
-  const renderedFontSize = clamp(Math.min(fontSize, overflowSafeSize || fontSize), 14, fontSize)
-  const lineH = renderedFontSize * 1.32
-  const textBlockHeight = lines.length * lineH
-  const textBlockW = maxAllowed
+  const renderedFontSize = clamp(fontSize, 14, 64)
+  const textWidthRatio = clamp(textWidthPercent, 55, 96) / 100
+  const textBlockW = clamp(videoWidth * textWidthRatio, 90, Math.max(90, videoWidth - 8))
+  const lines = useMemo(() => wrapText(customText, textBlockW, renderedFontSize), [customText, textBlockW, renderedFontSize])
+
+  const lineH = renderedFontSize * 1.25
+  const lineGap = Math.round(renderedFontSize * 0.18)
+  const textBlockHeight = lines.length
+    ? lines.length * lineH + Math.max(0, lines.length - 1) * lineGap
+    : lineH
 
   // Coordinates calculators for title overlays
-  const defaultTextX =
-    textAlign === 'left'
-      ? videoLeft + textSideMargin
-      : textAlign === 'right'
-        ? videoLeft + videoWidth - textBlockW - textSideMargin
-        : videoLeft + videoWidth / 2 - textBlockW / 2
+  // Overlay stays reference-anchored to the cropped video top.
+  // More lines grow upward, so line 2/3 never cover the video.
+  const defaultTextX = videoLeft + videoWidth / 2 - textBlockW / 2
   const defaultTextY = videoTop - TEXT_VIDEO_GAP - textBlockHeight
   const baseTextX = textDragPos ? textDragPos.x : defaultTextX
   const baseTextY = textDragPos ? textDragPos.y : defaultTextY
@@ -469,12 +544,12 @@ export default function Editor() {
   const captionX = clamp((captionDragPos ? captionDragPos.x : defaultCaptionX) + captionOffsetX, 12, STAGE_W - captionBoxW - 12)
   const captionY = clamp((captionDragPos ? captionDragPos.y : defaultCaptionY) + captionOffsetY, 12, STAGE_H - captionBlockHeight - 12)
   const captionTransform = { x: captionX, y: captionY, w: captionBoxW }
-  
+
   // Real-time subtitle word synchronizer
   const liveCaptionWords = useMemo(() => (
     captionWords.filter(item => item?.word && Number.isFinite(Number(item.start)) && Number.isFinite(Number(item.end)))
   ), [captionWords])
-  
+
   const activeCaptionText = useMemo(() => {
     // Purpose: Keeps subtitles strictly aligned with video player currentTime, showing matching words on screen in real-time.
     if (!liveCaptionWords.length) return ''
@@ -539,6 +614,7 @@ export default function Editor() {
     setPlaying(false)
     setCurrentTime(0)
     setVideoReady(false)
+    setForegroundPlaying(false)
     if (videoRef.current) {
       videoRef.current.pause()
       videoRef.current.currentTime = 0
@@ -623,7 +699,7 @@ export default function Editor() {
   useEffect(() => {
     return () => {
       if (audioCtxRef.current && audioCtxRef.current.state !== 'closed') {
-        audioCtxRef.current.close().catch(() => {})
+        audioCtxRef.current.close().catch(() => { })
       }
     }
   }, [])
@@ -652,26 +728,66 @@ export default function Editor() {
     }
   }, [clip, enableCaptions])
 
-  // Playback sync watcher (Keeps blurred background video in exact sync with main player)
+  // Playback sync watcher: foreground cropped video is the master, blurred background is only a slave layer.
   useEffect(() => {
     const main = videoRef.current
     const bg = bgVideoRef.current
     if (!main) return
 
-    if (playing) {
-      if (audioCtxRef.current?.state === 'suspended') {
-        audioCtxRef.current.resume()
-      }
-      if (bg && bgType === 'blur') {
-        bg.currentTime = main.currentTime
-        bg.play().catch(() => { })
-      }
-      main.play().catch(() => setPlaying(false))
-    } else {
+    if (!playing) {
       main.pause()
       bg?.pause()
+      setForegroundPlaying(false)
+      return
     }
-  }, [bgType, playing])
+
+    let cancelled = false
+
+    const startPlayback = async () => {
+      try {
+        setForegroundPlaying(false)
+
+        if (bg) {
+          bg.pause()
+          syncBackgroundVideoToMain(true)
+        }
+
+        if (audioCtxRef.current?.state === 'suspended') {
+          audioCtxRef.current.resume()
+        }
+
+        await main.play()
+        if (cancelled) return
+
+        const startBackgroundAfterForegroundFrame = () => {
+          if (cancelled) return
+          setForegroundPlaying(true)
+
+          if (bg && bgType === 'blur') {
+            syncBackgroundVideoToMain(true)
+            bg.play().catch(() => { })
+          }
+        }
+
+        if (typeof main.requestVideoFrameCallback === 'function') {
+          main.requestVideoFrameCallback(startBackgroundAfterForegroundFrame)
+        } else {
+          requestAnimationFrame(() => requestAnimationFrame(startBackgroundAfterForegroundFrame))
+        }
+      } catch {
+        if (!cancelled) {
+          setPlaying(false)
+          setForegroundPlaying(false)
+        }
+      }
+    }
+
+    startPlayback()
+
+    return () => {
+      cancelled = true
+    }
+  }, [bgType, playing, syncBackgroundVideoToMain])
 
   useEffect(() => {
     if (bgType !== 'blur') return
@@ -680,23 +796,35 @@ export default function Editor() {
     if (!main || !bg) return
 
     const sync = () => {
-      if (!playing) return
-      if (Math.abs(bg.currentTime - main.currentTime) > 0.1) {
-        bg.currentTime = main.currentTime
-      }
+      syncBackgroundVideoToMain()
     }
 
-    const onSeeked = () => {
-      bg.currentTime = main.currentTime
+    const hideBackgroundUntilForegroundContinues = () => {
+      setForegroundPlaying(false)
+      bg.pause()
+      syncBackgroundVideoToMain(true)
+    }
+
+    const showBackgroundAfterForegroundContinues = () => {
+      setForegroundPlaying(true)
+      syncBackgroundVideoToMain(true)
+      if (playing) bg.play().catch(() => { })
     }
 
     main.addEventListener('timeupdate', sync)
-    main.addEventListener('seeked', onSeeked)
+    main.addEventListener('seeked', sync)
+    main.addEventListener('seeking', hideBackgroundUntilForegroundContinues)
+    main.addEventListener('waiting', hideBackgroundUntilForegroundContinues)
+    main.addEventListener('playing', showBackgroundAfterForegroundContinues)
+
     return () => {
       main.removeEventListener('timeupdate', sync)
-      main.removeEventListener('seeked', onSeeked)
+      main.removeEventListener('seeked', sync)
+      main.removeEventListener('seeking', hideBackgroundUntilForegroundContinues)
+      main.removeEventListener('waiting', hideBackgroundUntilForegroundContinues)
+      main.removeEventListener('playing', showBackgroundAfterForegroundContinues)
     }
-  }, [bgType, playing])
+  }, [bgType, playing, syncBackgroundVideoToMain])
 
 
   // ── MOUSE MOUSE-DOWN DRAG HANDLERS (THE SNAP ENGINE) ──
@@ -872,7 +1000,7 @@ export default function Editor() {
     try {
       setExporting(true)
       const logoImgElement = document.querySelector('img[alt="Brand logo"]')
-      
+
       // Packs layout variables and compiles the watermark overlay PNG base64 string
       const overlayImage = makeOverlayImage({
         lines: textHidden ? [] : lines,
@@ -887,7 +1015,7 @@ export default function Editor() {
         logoTop: logoTop,
         logoSize: logoSize,
       })
-      
+
       // Sends completed details to Python server `/export/preview`
       const response = await api.post(
         '/export/preview',
@@ -897,7 +1025,7 @@ export default function Editor() {
           bg_type: bgType,
           bg_custom_color: bgCustomColor,
           blur_strength: blurStrength,
-          custom_text: customText,
+          custom_text: cleanOverlayText(customText),
           text_hidden: textHidden,
           text_align: textAlign,
           text_style: textStyle,
@@ -928,7 +1056,7 @@ export default function Editor() {
       const exportedUrl = `${API_BASE}${response.data.url}`
       const downloadName = response.data.filename || `clip-export.mp4`
       const clipNumber = clipIndex >= 0 ? clipIndex + 1 : 1
-      
+
       navigate('/export', {
         state: {
           previewUrl: exportedUrl,
@@ -968,7 +1096,7 @@ export default function Editor() {
 
   return (
     <div className="editor-page">
-      
+
       {/* ── SECTION A: TOP EDIT BAR CONTROLLER ──
           - Title and fast-jump chevrons to move between project Clips folder indexes.
       */}
@@ -1003,14 +1131,14 @@ export default function Editor() {
 
       {/* ── SECTION B: TWO-COLUMN EDIT LAYOUT ── */}
       <div className={`editor-layout${wideControls ? ' editor-layout-wide-controls' : ''}`}>
-        
+
         {/* LEFT COLUMN: The live visual mockup canvas stage player */}
         <section className="editor-preview-pane">
           <div className="glass-strong editor-preview-shell" style={{ width: previewPanelWidth, maxWidth: '100%' }}>
             <div className="editor-stage-shell" style={{ width: stageWidth }}>
               <div className="editor-stage-wrap" style={{ width: stageWidth, height: stageHeight }}>
                 <div className="editor-stage-frame" style={{ width: stageWidth, height: stageHeight }}>
-                  
+
                   {/* THE ABSOLUTE STAGE VIEWER CANVAS: Styled in HSL/iOS variables (.app-water bubbles, margins, colors) */}
                   <div
                     ref={stageRef}
@@ -1028,7 +1156,7 @@ export default function Editor() {
                       overflow: 'hidden',
                     }}
                   >
-                    
+
                     {/* CENTER SNAPPING GRAPHICAL LINES (appears when element centers snap within 8px) */}
                     {snapLines.v && (
                       <div style={{
@@ -1046,14 +1174,14 @@ export default function Editor() {
                     )}
 
                     {/* BLURRED BACKGROUND VIDEO PREVIEWER */}
-                    {bgType === 'blur' ? (
-                      <div style={{ position: 'absolute', inset: 0, overflow: 'hidden', opacity: videoReady ? 1 : 0, transition: 'opacity 0.3s ease' }}>
+                    {bgType === 'blur' && videoReady && (!playing || foregroundPlaying) ? (
+                      <div style={{ position: 'absolute', inset: 0, overflow: 'hidden', opacity: 1, zIndex: 0 }}>
                         <video
                           ref={bgVideoRef}
                           src={clipUrl}
                           muted
                           playsInline
-                          loop
+                          preload="auto"
                           crossOrigin="anonymous"
                           style={{
                             width: '100%',
@@ -1061,6 +1189,7 @@ export default function Editor() {
                             objectFit: 'cover',
                             transform: 'scale(1.18)',
                             filter: `blur(${Math.round((blurStrength / 100) * 26)}px) brightness(0.84)`,
+                            pointerEvents: 'none',
                           }}
                         />
                         <div style={{ position: 'absolute', inset: 0, background: 'rgba(8, 13, 20, 0.22)' }} />
@@ -1082,28 +1211,35 @@ export default function Editor() {
                         background: '#05070c',
                         boxShadow: '0 20px 44px rgba(0, 0, 0, 0.34)',
                         cursor: 'grab',
-                        opacity: videoReady ? 1 : 0,
-                        transition: 'opacity 0.35s ease',
+                        opacity: 1,
+                        zIndex: 10,
                       }}
                     >
                       <video
-                          ref={videoRef}
-                          src={clipUrl}
-                          playsInline
-                          loop
-                          crossOrigin="anonymous"
-                          onCanPlay={() => setVideoReady(true)}
-                          onLoadedMetadata={event => {
-                            setDuration(event.target.duration || 0)
-                            setCurrentTime(0)
-                          }}
-                          onTimeUpdate={event => setCurrentTime(event.target.currentTime)}
-                          style={{
-                            width: '100%',
-                            height: '100%',
-                            objectFit: 'cover',
-                            pointerEvents: 'none',
-                          }}
+                        ref={videoRef}
+                        src={clipUrl}
+                        playsInline
+                        loop
+                        preload="auto"
+                        crossOrigin="anonymous"
+                        onLoadedData={revealVideoAfterFramePaint}
+                        onCanPlay={revealVideoAfterFramePaint}
+                        onLoadedMetadata={event => {
+                          setDuration(event.target.duration || 0)
+                          setCurrentTime(0)
+                        }}
+                        onTimeUpdate={event => setCurrentTime(event.target.currentTime)}
+                        onPlaying={() => setForegroundPlaying(true)}
+                        onWaiting={() => setForegroundPlaying(false)}
+                        onSeeking={() => setForegroundPlaying(false)}
+                        style={{
+                          width: '100%',
+                          height: '100%',
+                          objectFit: 'cover',
+                          pointerEvents: 'none',
+                          opacity: videoReady ? 1 : 0,
+                          display: 'block',
+                        }}
                       />
                     </div>
 
@@ -1129,7 +1265,7 @@ export default function Editor() {
                             style={{
                               width: '100%',
                               textAlign,
-                              marginBottom: index < lines.length - 1 ? Math.round(renderedFontSize * 0.18) : 0,
+                              marginBottom: index < lines.length - 1 ? lineGap : 0,
                             }}
                           >
                             <span
@@ -1140,10 +1276,11 @@ export default function Editor() {
                                 borderRadius: textStyle === 'box' ? 6 : 0,
                                 background: textStyle === 'box' ? 'rgba(10, 15, 25, 0.76)' : 'transparent',
                                 color: textColor,
-                                fontWeight: 800,
+                                fontFamily: '-apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", "Segoe UI", "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif',
+                                fontWeight: 400,
                                 fontSize: renderedFontSize,
                                 lineHeight: 1.25,
-                                whiteSpace: 'normal',
+                                whiteSpace: 'nowrap',
                                 textShadow: shouldShadowText ? '0 2px 8px rgba(0, 0, 0, 0.8)' : 'none',
                               }}
                             >
@@ -1206,7 +1343,7 @@ export default function Editor() {
 
             {/* TIMELINE MEDIA CONTROLS BAR: Play progress bar, volume boost range, timestamps */}
             <div className="glass-thin editor-playbar" style={{ width: stageWidth }}>
-              
+
               {/* Play / Pause click */}
               <button type="button" className="btn btn-solid-white btn-sm" onClick={() => setPlaying(prev => !prev)}>
                 <span className="material-symbols-outlined" style={{ fontSize: 18, fontVariationSettings: "'FILL' 1" }}>
@@ -1270,7 +1407,7 @@ export default function Editor() {
 
         {/* RIGHT COLUMN: The editor dashboard panel switches tab forms */}
         <aside className={`editor-control-pane${wideControls ? ' editor-control-pane-wide' : ''}`}>
-          
+
           {/* Editor control tabs header */}
           <section className="editor-card">
             <div className="editor-tab-list">
@@ -1289,16 +1426,16 @@ export default function Editor() {
 
           {/* ACTIVE TOOL SETTINGS PANEL CARDS */}
           <section className={`editor-card editor-tool-card${wideControls ? ' editor-card-wide' : ''}`}>
-            
+
             {/* TAB 1: OVERLAY CUSTOMIZER (text hook headers) */}
             {tab === 'overlay' ? (
               <div className="editor-dual-panel">
-                
+
                 {/* Column A: Text values */}
                 <div className="editor-panel-column">
                   <label className="editor-field">
                     <span className="text-label">Overlay text</span>
-                    <textarea className="glass-input" rows={4} value={customText} onChange={event => setCustomText(event.target.value)} />
+                    <textarea className="glass-input" rows={4} value={customText} onChange={event => setCustomText(cleanOverlayText(event.target.value))} />
                   </label>
 
                   {/* AI hook helpers picker */}
@@ -1307,7 +1444,7 @@ export default function Editor() {
                       <span className="text-label">AI Suggested Hooks</span>
                       <div style={{ maxHeight: 220, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 6, paddingRight: 4, paddingBottom: 4 }}>
                         {clip.overlay_texts.map((txt, i) => (
-                          <button key={i} className="btn btn-glass btn-sm" style={{ textAlign: 'left', whiteSpace: 'normal', padding: '8px 12px' }} onClick={() => setCustomText(txt)}>
+                          <button key={i} className="btn btn-glass btn-sm" style={{ textAlign: 'left', whiteSpace: 'normal', padding: '8px 12px' }} onClick={() => setCustomText(cleanOverlayText(txt))}>
                             "{txt}"
                           </button>
                         ))}
@@ -1344,7 +1481,7 @@ export default function Editor() {
                         <option value="box">Box</option>
                       </select>
                     </label>
-                    
+
                     <label className="editor-field">
                       <span className="text-label">Color</span>
                       <input type="color" className="glass-input" style={{ height: 40, padding: 2 }} value={textColor} onChange={event => setTextColor(event.target.value)} />
@@ -1355,6 +1492,12 @@ export default function Editor() {
                     <span className="text-label">Size</span>
                     <input type="range" className="range" min="14" max="64" value={fontSize} onChange={event => setFontSize(parseInt(event.target.value, 10))} />
                     <span className="editor-value">{fontSize}px</span>
+                  </label>
+
+                  <label className="editor-field">
+                    <span className="text-label">Text width</span>
+                    <input type="range" className="range" min="55" max="96" value={textWidthPercent} onChange={event => setTextWidthPercent(parseInt(event.target.value, 10))} />
+                    <span className="editor-value">{textWidthPercent}%</span>
                   </label>
 
                   <label className="editor-field">
@@ -1374,7 +1517,7 @@ export default function Editor() {
             {/* TAB 2: SUBTITLES CUSTOMIZER */}
             {tab === 'subtitles' ? (
               <div className="editor-form">
-                
+
                 {/* Column A: Activators & preview */}
                 <div className="editor-panel-column">
                   <label className="row" style={{ gap: 8 }}>
@@ -1452,7 +1595,7 @@ export default function Editor() {
             {/* TAB 3: RATIO & CROP CONTROLLER */}
             {tab === 'canvas' ? (
               <div className="editor-dual-panel">
-                
+
                 {/* Column A: presets selection */}
                 <div className="editor-panel-column">
                   <div className="editor-field">
@@ -1500,7 +1643,7 @@ export default function Editor() {
             {/* TAB 4: CANVAS STAGING BACKGROUND OPTIONS */}
             {tab === 'background' ? (
               <div className="editor-form">
-                
+
                 {/* Background style buttons */}
                 <div className="editor-field">
                   <span className="text-label">Background mode</span>
@@ -1561,13 +1704,13 @@ export default function Editor() {
             {/* TAB 5: BRADING LOGO UPLOADER */}
             {tab === 'logo' ? (
               <div className="editor-form">
-                
+
                 {/* Logo file selection click */}
                 <button type="button" className="btn btn-glass" onClick={() => logoInputRef.current?.click()}>
                   <span className="material-symbols-outlined" style={{ fontSize: 17 }}>upload</span>
                   {logo ? 'Replace logo' : 'Upload logo'}
                 </button>
-                
+
                 {/* Hidden input accepts image file formats */}
                 <input
                   ref={logoInputRef}
@@ -1637,7 +1780,7 @@ export default function Editor() {
           <section className="editor-card stack">
             <div className="row-wrap" style={{ justifyContent: 'space-between', alignItems: 'center' }}>
               <h3 className="editor-section-title" style={{ margin: 0 }}>Instagram Caption</h3>
-              
+
               {/* Copy caption button */}
               <button
                 type="button"
@@ -1657,7 +1800,7 @@ export default function Editor() {
                 {captionCopied ? 'Copied!' : 'Copy'}
               </button>
             </div>
-            
+
             <textarea
               className="glass-input editor-caption"
               value={captionText || 'Caption will appear here after processing.'}
