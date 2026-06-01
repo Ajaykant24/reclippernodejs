@@ -1,0 +1,8 @@
+node_modules
+.env
+data
+clips
+repurpose_outputs
+*.log
+__pycache__
+*.pyc
