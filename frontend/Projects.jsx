@@ -508,6 +508,11 @@ function RepurposeProjectCard({ project, onEdit, onDelete, selectable = false, s
   const clip = project.clips?.[0] || {}
   const clipUrl = clip.clip_url ? `${API_BASE}${clip.clip_url}` : ''
   const title = clip.hook || project.title || 'Repurposed clip'
+  const [videoReady, setVideoReady] = useState(false)
+
+  useEffect(() => {
+    setVideoReady(false)
+  }, [clipUrl])
   
   // Combines coordinates logic and builds overlay PNG data
   const preview = useMemo(() => buildRepurposePreview(clip), [clip])
@@ -596,6 +601,7 @@ function RepurposeProjectCard({ project, onEdit, onDelete, selectable = false, s
               top: `${(preview.videoBox.t / STAGE_H) * 100}%`,
               width: `${(preview.videoBox.w / STAGE_W) * 100}%`,
               height: `${(preview.videoBox.h / STAGE_H) * 100}%`,
+              opacity: videoReady ? 1 : 0,
             }}
           >
             {clipUrl ? (
@@ -611,6 +617,8 @@ function RepurposeProjectCard({ project, onEdit, onDelete, selectable = false, s
                 playsInline
                 loop
                 preload="metadata"
+                onLoadedData={() => setVideoReady(true)}
+                onCanPlay={() => setVideoReady(true)}
                 onMouseEnter={event => event.currentTarget.play().catch(() => {})}
                 onMouseLeave={event => {
                   event.currentTarget.pause()

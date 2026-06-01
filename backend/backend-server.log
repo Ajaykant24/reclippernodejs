@@ -1,0 +1,28 @@
+INFO:     127.0.0.1:59543 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59572 - "GET / HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:59572 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56698 - "GET / HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:56698 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52172 - "OPTIONS /auth/demo HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52172 - "POST /auth/demo HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52172 - "OPTIONS /projects/library HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51615 - "OPTIONS /api/v2/repurpose/jobs HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63146 - "OPTIONS /projects/library HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58243 - "OPTIONS /api/v2/repurpose/jobs HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52172 - "GET /projects/library HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51615 - "GET /api/v2/repurpose/jobs HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63146 - "GET /projects/library HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52172 - "GET /api/v2/repurpose/jobs HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52172 - "GET /projects/library HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63146 - "GET /api/v2/repurpose/jobs HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51615 - "GET /projects/library HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52172 - "GET /api/v2/repurpose/jobs HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59444 - "GET /clips/repurposed_v2_97ff844521.mp4 HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:54509 - "GET /clips/repurposed_v2_30d76a54cf.mp4 HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:52172 - "GET /clips/repurposed_v2_97ff844521.mp4 HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:51976 - "GET /clips/repurposed_v2_97ff844521.mp4 HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:57187 - "OPTIONS /export/preview HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57187 - "POST /export/preview HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52499 - "GET /clips/export_repurposed_v2_97ff844521_89e1ab.mp4 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54464 - "GET /clips/repurposed_v2_97ff844521.mp4 HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:52653 - "GET /clips/repurposed_v2_97ff844521.mp4 HTTP/1.1" 304 Not Modified
