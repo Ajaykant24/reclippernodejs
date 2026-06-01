@@ -4,8 +4,8 @@ services:
     runtime: docker
     plan: starter
     rootDir: backend
-    dockerfilePath: ./backend/Dockerfile
-    dockerContext: ./backend
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
     healthCheckPath: /health
     envVars:
       - key: STORAGE_DIR
