@@ -1,13 +1,13 @@
 // ── BACKEND CONNECTOR CLIENT: client.js ──
 // - Purpose: Establishes a communication bridge between your web interface (frontend) and your Python server (backend).
 // - How it works: It handles authentication headers (user session tracking) and formats friendly connection error alerts.
-// - Editing Tip: If your backend server runs on a different address/port, change 'http://127.0.0.1:8000' below or set VITE_API_URL in "frontend/.env".
+// - Editing Tip: If your backend server runs on a different address/port, set VITE_API_URL in "frontend/.env".
 
 import axios from 'axios'
 
 // SERVER BASE URL: The web address where your Python FastAPI server is running.
-// - Falls back to local address 'http://127.0.0.1:8000' if no environmental variable is set.
-export const API_BASE = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000'
+// - Falls back to the hosted Render API if no environmental variable is set.
+export const API_BASE = import.meta.env.VITE_API_URL || 'https://clippar.onrender.com'
 
 // CLIENT INSTANCE: Configures a reusable connector with the base address preset.
 export const api = axios.create({
