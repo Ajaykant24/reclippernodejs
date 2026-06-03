@@ -1,0 +1,46 @@
+# fly.toml — Fly.io configuration for reclipper backend
+# Deploy with: fly deploy (from the backend/ directory)
+
+app = "reclipper-backend"
+primary_region = "sin"          # Singapore — closest to India; change to "bom" if available
+
+[build]
+  dockerfile = "Dockerfile"
+
+[env]
+  NODE_ENV    = "production"
+  PORT        = "8080"
+  STORAGE_DIR = "/data"
+  # GEMINI_API_KEY  → set via: fly secrets set GEMINI_API_KEY=your_key_here
+  # GEMINI_MODEL    → set via: fly secrets set GEMINI_MODEL=gemini-2.5-flash
+  # CORS_ORIGINS    → set via: fly secrets set CORS_ORIGINS=https://your-vercel-app.vercel.app
+
+[http_service]
+  internal_port        = 8080
+  force_https          = true
+  auto_stop_machines   = false   # ← keeps the app always on (no sleep)
+  auto_start_machines  = true
+  min_machines_running = 1       # ← always keep 1 machine alive
+
+  [http_service.concurrency]
+    type       = "requests"
+    hard_limit = 100
+    soft_limit = 80
+
+[[vm]]
+  size   = "shared-cpu-1x"   # Free tier machine
+  memory = "512mb"
+
+[[mounts]]
+  source      = "reclipper_data"   # Fly volume name (created on first deploy)
+  destination = "/data"            # Matches STORAGE_DIR above
+  initial_size = "5gb"
+
+[checks]
+  [checks.health]
+    port     = 8080
+    type     = "http"
+    interval = "30s"
+    timeout  = "5s"
+    path     = "/health"
+    method   = "GET"

@@ -10,7 +10,7 @@ services:
     envVars:
       - key: STORAGE_DIR
         value: /var/data
-      - key: CORS_ORIGINS
+      - key: ALLOW_ORIGINS
         value: https://clippar-black.vercel.app
       - key: GEMINI_API_KEY
         sync: false

@@ -125,25 +125,30 @@ function withExportPreviewDefaults(body) {
 }
 
 const app = express()
+const allowedOrigins = [
+  'http://localhost:5173',
+  'http://127.0.0.1:5173',
+  'http://localhost:5174',
+  'http://127.0.0.1:5174',
+  'http://localhost:3000',
+  'http://127.0.0.1:3000',
+  ...String(process.env.ALLOW_ORIGINS || process.env.CORS_ORIGINS || '')
+    .split(',')
+    .map(origin => origin.trim())
+    .filter(Boolean),
+]
 
 app.use(cors({
-  origin: [
-    'http://localhost:5173',
-    'http://127.0.0.1:5173',
-    'http://localhost:5174',
-    'http://127.0.0.1:5174',
-    'http://localhost:3000',
-    'http://127.0.0.1:3000',
-    ...String(process.env.CORS_ORIGINS || '')
-      .split(',')
-      .map(origin => origin.trim())
-      .filter(Boolean),
-  ],
+  origin: allowedOrigins,
   credentials: true,
 }))
 app.use(express.json({ limit: '50mb' }))
 app.use('/clips', express.static(CLIPS_DIR))
 app.use('/api/v2/repurpose', require('./repurpose_v2_router'))
+
+app.get('/', (req, res) => {
+  res.json({ status: 'ok', message: 'Backend is running' })
+})
 
 app.get('/health', (req, res) => {
   res.json({ status: 'ok' })
