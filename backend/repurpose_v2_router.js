@@ -53,27 +53,32 @@ async function runPipeline(
     const probe = await probeVideo(videoPath)
     if (!probe.success) throw new Error(`Video probe failed: ${probe.error}`)
 
-    update(jobId, { status: 'smart_cropping', progress: 15 })
-    const smartCropPath = path.join(workDir, 'smart_crop.mp4')
-    const cropResult = await detectAndCrop(videoPath, smartCropPath, probe)
-    if (!cropResult.success) throw new Error(`Smart crop failed: ${cropResult.error}`)
-
     const normalizedRatio = String(outputRatio || 'original').trim().toLowerCase()
     const useOriginal = ['', 'original', 'source', 'actual'].includes(normalizedRatio)
     const sourceW = Number.parseInt(probe.width || 0, 10)
     const sourceH = Number.parseInt(probe.height || 0, 10)
+    let cropResult = { success: true, cropped: false, crop_w: sourceW, crop_h: sourceH }
+    let workingVideoPath = videoPath
+
+    if (!useOriginal) {
+      update(jobId, { status: 'smart_cropping', progress: 15 })
+      const smartCropPath = path.join(workDir, 'smart_crop.mp4')
+      cropResult = await detectAndCrop(videoPath, smartCropPath, probe)
+      if (!cropResult.success) throw new Error(`Smart crop failed: ${cropResult.error}`)
+      workingVideoPath = smartCropPath
+    }
+
     const cropW = Number.parseInt(cropResult.crop_w || sourceW, 10)
     const cropH = Number.parseInt(cropResult.crop_h || sourceH, 10)
     let canvasW = cropW
     let canvasH = cropH
-    let workingVideoPath = smartCropPath
 
     if (!useOriginal) {
       if (!RATIO_DIMS[normalizedRatio]) throw new Error(`Unsupported output_ratio: '${outputRatio}'`)
       update(jobId, { status: 'composing_canvas', progress: 25 })
       const canvasPath = path.join(workDir, 'canvas.mp4')
       const canvasResult = await composeCanvas(
-        smartCropPath,
+        workingVideoPath,
         canvasPath,
         normalizedRatio,
         backgroundType,
