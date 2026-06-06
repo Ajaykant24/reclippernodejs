@@ -7,7 +7,7 @@ import axios from 'axios'
 
 // SERVER BASE URL: The web address where your Python FastAPI server is running.
 // - Falls back to local address 'http://127.0.0.1:8000' if no environmental variable is set.
-export const API_BASE = import.meta.env.VITE_API_URL || 'https://darkgreen-elk-178624.hostingersite.com/'
+export const API_BASE = import.meta.env.VITE_API_URL || 'https://clippar.online/'
 
 // CLIENT INSTANCE: Configures a reusable connector with the base address preset.
 export const api = axios.create({
