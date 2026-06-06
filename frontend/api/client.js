@@ -7,7 +7,7 @@ import axios from 'axios'
 
 // SERVER BASE URL: The web address where your Python FastAPI server is running.
 // - Falls back to the hosted Render API if no environmental variable is set.
-export const API_BASE = import.meta.env.VITE_API_URL || 'https://clippar.onrender.com'
+export const API_BASE = import.meta.env.VITE_API_URL || 'https://darkgreen-elk-178624.hostingersite.com'
 
 // CLIENT INSTANCE: Configures a reusable connector with the base address preset.
 export const api = axios.create({
