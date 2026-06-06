@@ -4,6 +4,7 @@
   "version": "1.0.0",
   "scripts": {
     "start": "node main.js",
+    "build": "npm run check",
     "check": "node --check main.js && node --check repurpose_v2_router.js && node --check repurpose_v2_pipeline.js && node --check repurpose_v2_ai.js && node --check video_processor.js && node --check repurpose_router.js && node --check repurpose_pipeline.js && node --check repurpose_render.js && node --check repurpose_ai.js && node --check repurpose_models.js"
   },
   "dependencies": {
