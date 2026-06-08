@@ -34,14 +34,14 @@ export default function DashboardPage() {
       PAGE BASE LAYER: Workspace layout wrapper.
       - Styled by .workspace-page (index.css).
     */
-    <div className="workspace-page">
+    <div className="workspace-page mobile-page mobile-dashboard-page">
       
       {/* 
         WELCOME HERO CONTAINER:
         - Displays your name and a short introduction next to a "New Clip" action button.
         - CSS styles: .workspace-hero
       */}
-      <header className="workspace-hero">
+      <header className="workspace-hero mobile-page-hero">
         <div>
           <span className="eyebrow">Workspace</span>
           {/* Welcome headline (gathers user name dynamically, defaults to 'Creator') */}
@@ -61,7 +61,7 @@ export default function DashboardPage() {
         - Four cards displaying your workspace statistics.
         - Styled by .metric-grid and .premium-metrics in index.css.
       */}
-      <section className="metric-grid premium-metrics">
+      <section className="metric-grid premium-metrics mobile-metric-strip">
         {/* Card 1: Total Projects Count */}
         <div><strong>{projects.length}</strong><span>Projects</span></div>
         {/* Card 2: Sum of Clips Generated */}
@@ -77,7 +77,7 @@ export default function DashboardPage() {
         - Fast navigation shortcuts to crucial workspace areas.
         - Styled by .premium-workflow and .workflow-list in index.css.
       */}
-      <section className="premium-workflow">
+      <section className="premium-workflow mobile-workflow-panel">
         <div>
           <span className="eyebrow">Next actions</span>
           <h2>Keep the posting line moving.</h2>

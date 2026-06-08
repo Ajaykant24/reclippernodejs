@@ -388,14 +388,19 @@ async function composeCanvas(
   }
 
   if (backgroundType === 'blur') {
+    // Blur strength scales with the chosen intensity (0..1) so the slider actually
+    // changes how strong the blur looks. A higher cap keeps it visibly effective.
+    const intensity = Math.max(0.0, Math.min(1.0, blurOpacity))
+    const sigma = Math.max(8, Math.round(intensity * 60))
     let bgChain = (
       `[0:v]scale=${tw}:${th}:force_original_aspect_ratio=increase,`
       + `crop=${tw}:${th},`
-      + 'gblur=sigma=40'
+      + `gblur=sigma=${sigma}`
     )
-    const opacity = 1.0 - Math.max(0.0, Math.min(1.0, blurOpacity))
-    if (opacity > 0.0) {
-      bgChain += `,drawbox=x=0:y=0:w=iw:h=ih:color=black@${opacity.toFixed(3)}:t=fill`
+    // Subtle darkening that also grows with the intensity value.
+    const darken = intensity * 0.35
+    if (darken > 0.0) {
+      bgChain += `,drawbox=x=0:y=0:w=iw:h=ih:color=black@${darken.toFixed(3)}:t=fill`
     }
     bgChain += '[bg]'
     const fgChain = (
@@ -433,7 +438,22 @@ async function extractAnalysisFrame(videoPath, outputFramePath, seekSecs = 1.0) 
   return result
 }
 
-async function renderOverlayText(canvasPath, outputPath, overlayText, canvasW, canvasH) {
+function textColorForBackground(backgroundType, backgroundColor) {
+  if (backgroundType === 'white') return { text: 'black', border: 'white', shadow: 'white' }
+  if (backgroundType === 'custom') {
+    const hex = normalizeHexColor(backgroundColor, '#000000').replace('#', '')
+    const r = parseInt(hex.slice(0, 2), 16)
+    const g = parseInt(hex.slice(2, 4), 16)
+    const b = parseInt(hex.slice(4, 6), 16)
+    const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255
+    return luminance > 0.55
+      ? { text: 'black', border: 'white', shadow: 'white' }
+      : { text: 'white', border: 'black', shadow: 'black' }
+  }
+  return { text: 'white', border: 'black', shadow: 'black' }
+}
+
+async function renderOverlayText(canvasPath, outputPath, overlayText, canvasW, canvasH, backgroundType = 'black', backgroundColor = '#000000') {
   const text = String(overlayText || '').trim()
   if (!text) {
     fs.copyFileSync(canvasPath, outputPath)
@@ -448,6 +468,7 @@ async function renderOverlayText(canvasPath, outputPath, overlayText, canvasW, c
     return { success: true }
   }
 
+  const { text: fontColor, border: borderColor, shadow: shadowColor } = textColorForBackground(backgroundType, backgroundColor)
   const fontPath = resolveFont()
   const sideMargin = 24
   const blockHeight = lines.length * fontSize + Math.max(0, lines.length - 1) * lineSpacing
@@ -465,9 +486,9 @@ async function renderOverlayText(canvasPath, outputPath, overlayText, canvasW, c
       + 'x=(w-text_w)/2:'
       + `y=${lineY}:`
       + `fontsize=${fontSize}:`
-      + 'fontcolor=white:'
-      + 'borderw=4:bordercolor=black@0.95:'
-      + 'shadowx=3:shadowy=3:shadowcolor=black@0.90'
+      + `fontcolor=${fontColor}:`
+      + `borderw=4:bordercolor=${borderColor}@0.95:`
+      + `shadowx=3:shadowy=3:shadowcolor=${shadowColor}@0.90`
     )
     if (fontPath) draw += `:fontfile='${escapeDrawtext(fontPath)}'`
     draw += nextLabel
@@ -505,6 +526,31 @@ async function applyLogo(videoPath, logoPath, outputPath, canvasW, canvasH) {
   ], 'apply_logo')
 }
 
+async function freshenVideo(inputPath, outputPath) {
+  const vf = [
+    'setpts=0.98*PTS',
+    'scale=iw*1.04:ih*1.04',
+    'crop=iw/1.04:ih/1.04',
+    'eq=brightness=0.03:contrast=1.03:saturation=1.05',
+    'hue=h=3',
+    'noise=alls=3:allf=t+u',
+    'unsharp=3:3:0.5',
+  ].join(',')
+  const af = 'atempo=1.02,asetrate=44100*0.99,aresample=44100'
+  return run([
+    '-i', inputPath,
+    '-vf', vf,
+    '-af', af,
+    '-c:v', 'libx264', '-preset', 'fast', '-crf', '20',
+    '-g', '48',
+    '-c:a', 'aac', '-b:a', '128k',
+    '-pix_fmt', 'yuv420p',
+    '-map_metadata', '-1',
+    '-movflags', '+faststart',
+    outputPath,
+  ], 'freshen_video')
+}
+
 module.exports = {
   RATIO_DIMS,
   escapeDrawtext,
@@ -518,4 +564,5 @@ module.exports = {
   extractAnalysisFrame,
   renderOverlayText,
   applyLogo,
+  freshenVideo,
 }

@@ -42,14 +42,14 @@ export default function SignUpPage() {
       AUTH BASE LAYER: Centered authentication viewport wrapper.
       - Styled by .auth-shell (index.css).
     */
-    <div className="auth-shell">
+    <div className="auth-shell mobile-page mobile-auth-page">
       
       {/* 
         AUTH CARD WRAPPER:
         - The centered container holding the form elements.
         - Styled by .auth-card in index.css (glass borders, box shadows).
       */}
-      <section className="auth-card">
+      <section className="auth-card mobile-auth-card">
         <span className="eyebrow">Start the studio</span>
         <h1>Create your account</h1>
         <p>Launch a polished short-form workflow with projects, AI overlays, captions, editor controls, and export review.</p>

@@ -9,7 +9,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useLocation, useNavigate, useParams } from 'react-router-dom'
-import { api, API_BASE } from './api/client'
+import { api, API_BASE, resolveUrl } from './api/client'
 
 // ── CANVAS STAGE SIZE METRICS ──
 const STAGE_W = 405
@@ -50,6 +50,7 @@ const TABS = [
   { id: 'subtitles', label: 'Subtitles' },
   { id: 'canvas', label: 'Ratio' },
   { id: 'background', label: 'Background' },
+  { id: 'igcaption', label: 'IG Caption' },
   { id: 'logo', label: 'Logo' },
 ]
 
@@ -173,7 +174,7 @@ function makeOverlayImage({ lines, textBox, fontSize, color, align, style, shado
 }
 
 function assetUrl(path) {
-  return path ? `${API_BASE}${path}` : ''
+  return resolveUrl(path)
 }
 
 function readStoredJson(key, fallback = null) {
@@ -369,6 +370,7 @@ export default function Editor() {
   const bgVideoRef = useRef(null)       // Background video player (plays blurred underneath)
   const logoInputRef = useRef(null)     // Invisible logo image upload click trigger
   const stageRef = useRef(null)         // Absolute stage container div
+  const sheetDragRef = useRef(null)     // Mobile settings sheet drag tracker
 
   // Drag coordinates references
   const videoDragRef = useRef(null)
@@ -386,6 +388,7 @@ export default function Editor() {
   const routeState = useMemo(() => location.state || {}, [location.state])
 
   const [tab, setTab] = useState('overlay') // Currently active customizer sidebar tab
+  const [mobileSheet, setMobileSheet] = useState('mid')
   const [ratio, setRatio] = useState(() => inferClipRatio(clip, routeState))
   const [bgType, setBgType] = useState(routeState.bgType || 'black')
   const [bgCustomColor, setBgCustomColor] = useState(routeState.bgColor || '#111827')
@@ -484,12 +487,14 @@ export default function Editor() {
 
   // DYNAMIC COMPONENT RESIZER MATH: Fits the 9:16 mobile stage perfectly to whatever your monitor screen resolution is.
   const stageScale = useMemo(() => {
+    const isMobilePreview = windowSize.w <= 768
     const desktopSidePanel = windowSize.w >= 1024 ? 610 : 0
-    const outerPadding = windowSize.w >= 1024 ? 132 : 26
-    const maxScale = windowSize.w >= 1024 ? 1.02 : 1.06
-    const widthFit = Math.max(0.72, Math.min(maxScale, (windowSize.w - desktopSidePanel - outerPadding) / STAGE_W))
-    const reservedHeight = windowSize.w >= 1024 ? 178 : 190
-    const heightFit = Math.max(0.72, Math.min(maxScale, (windowSize.h - reservedHeight) / STAGE_H))
+    const outerPadding = windowSize.w >= 1024 ? 132 : isMobilePreview ? 34 : 26
+    const maxScale = windowSize.w >= 1024 ? 1.02 : isMobilePreview ? 0.58 : 1.06
+    const minScale = isMobilePreview ? 0.36 : 0.72
+    const widthFit = Math.max(minScale, Math.min(maxScale, (windowSize.w - desktopSidePanel - outerPadding) / STAGE_W))
+    const reservedHeight = windowSize.w >= 1024 ? 178 : isMobilePreview ? 440 : 190
+    const heightFit = Math.max(minScale, Math.min(maxScale, (windowSize.h - reservedHeight) / STAGE_H))
 
     return Math.min(widthFit, heightFit)
   }, [windowSize.h, windowSize.w])
@@ -516,6 +521,7 @@ export default function Editor() {
 
   const renderedFontSize = clamp(fontSize, 14, 64)
   const textWidthRatio = clamp(textWidthPercent, 55, 96) / 100
+  // Keep the overlay text width within the cropped video width so it never spills past the video.
   const textBlockW = clamp(videoWidth * textWidthRatio, 90, Math.max(90, videoWidth - 8))
   const lines = useMemo(() => wrapText(customText, textBlockW, renderedFontSize), [customText, textBlockW, renderedFontSize])
 
@@ -576,9 +582,68 @@ export default function Editor() {
           ? bgCustomColor
           : '#0f1116'
 
+  const toggleMobileSheet = useCallback(() => {
+    setMobileSheet(prev => (prev === 'full' ? 'mid' : prev === 'peek' ? 'mid' : 'full'))
+  }, [])
+
+  const handleSheetKeyDown = useCallback((event) => {
+    if (event.key !== 'Enter' && event.key !== ' ') return
+    event.preventDefault()
+    toggleMobileSheet()
+  }, [toggleMobileSheet])
+
+  const startMobileSheetDrag = useCallback((event) => {
+    if (event.pointerType === 'mouse' && event.button !== 0) return
+
+    const startY = event.clientY
+    const modes = ['peek', 'mid', 'full']
+    const startMode = mobileSheet
+    const startIndex = Math.max(0, modes.indexOf(startMode))
+    sheetDragRef.current = { startY, startMode }
+
+    const modeForDelta = delta => {
+      if (delta < -56) return modes[Math.min(modes.length - 1, startIndex + 1)]
+      if (delta > 56) return modes[Math.max(0, startIndex - 1)]
+      return startMode
+    }
+
+    const handleMove = moveEvent => {
+      if (moveEvent.cancelable) moveEvent.preventDefault()
+      setMobileSheet(modeForDelta(moveEvent.clientY - startY))
+    }
+
+    const cleanup = () => {
+      window.removeEventListener('pointermove', handleMove)
+      window.removeEventListener('pointerup', handleUp)
+      window.removeEventListener('pointercancel', handleCancel)
+      sheetDragRef.current = null
+    }
+
+    const handleUp = upEvent => {
+      const delta = upEvent.clientY - startY
+      if (Math.abs(delta) < 10) {
+        toggleMobileSheet()
+      } else {
+        setMobileSheet(modeForDelta(delta))
+      }
+      cleanup()
+    }
+
+    const handleCancel = () => {
+      setMobileSheet(startMode)
+      cleanup()
+    }
+
+    window.addEventListener('pointermove', handleMove, { passive: false })
+    window.addEventListener('pointerup', handleUp)
+    window.addEventListener('pointercancel', handleCancel)
+  }, [mobileSheet, toggleMobileSheet])
+
   const goBack = () => {
     const projectId = localStorage.getItem('editClipProjectId')
-    if (projectId) {
+    if (window.history.length > 1) {
+      navigate(-1)
+    } else if (projectId) {
       navigate(`/projects/${projectId}`)
     } else {
       navigate('/projects')
@@ -1053,7 +1118,7 @@ export default function Editor() {
       )
 
       // Successfully rendered! Navigates to ExportPage view
-      const exportedUrl = `${API_BASE}${response.data.url}`
+      const exportedUrl = resolveUrl(response.data.url)
       const downloadName = response.data.filename || `clip-export.mp4`
       const clipNumber = clipIndex >= 0 ? clipIndex + 1 : 1
 
@@ -1093,48 +1158,39 @@ export default function Editor() {
   }
 
   const wideControls = tab === 'overlay' || tab === 'subtitles' || tab === 'canvas'
+  const controlPaneClass = `editor-control-pane${wideControls ? ' editor-control-pane-wide' : ''} editor-mobile-sheet-${mobileSheet}`
 
   return (
-    <div className="editor-page">
+    <div className="editor-page mobile-page mobile-editor-page">
 
       {/* ── SECTION A: TOP EDIT BAR CONTROLLER ──
           - Title and fast-jump chevrons to move between project Clips folder indexes.
       */}
-      <header className="editor-topbar glass-thin">
-        <button className="btn btn-glass btn-sm" onClick={goBack}>
-          <span className="material-symbols-outlined" style={{ fontSize: 16 }}>arrow_back</span>
-          Back
-        </button>
-
-        <div style={{ minWidth: 0 }}>
-          <div style={{ fontSize: 14, fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-            {clip.hook || 'Clip Editor'}
-          </div>
-          <div className="meta-line">
-            Clip {clipIndex >= 0 ? clipIndex + 1 : 1}
-            {clipList.length > 0 ? ` of ${clipList.length}` : ''}
-          </div>
-        </div>
-
-        <div className="row-wrap">
-          <button type="button" className="btn btn-glass btn-sm" disabled={!prevClip} onClick={() => openClip(prevClip)}>
-            <span className="material-symbols-outlined" style={{ fontSize: 16 }}>chevron_left</span>
-            Prev
-          </button>
-          <button type="button" className="btn btn-glass btn-sm" disabled={!nextClip} onClick={() => openClip(nextClip)}>
-            Next
-            <span className="material-symbols-outlined" style={{ fontSize: 16 }}>chevron_right</span>
-          </button>
-        </div>
-      </header>
 
 
       {/* ── SECTION B: TWO-COLUMN EDIT LAYOUT ── */}
-      <div className={`editor-layout${wideControls ? ' editor-layout-wide-controls' : ''}`}>
+      <div className="editor-layout">
 
         {/* LEFT COLUMN: The live visual mockup canvas stage player */}
-        <section className="editor-preview-pane">
-          <div className="glass-strong editor-preview-shell" style={{ width: previewPanelWidth, maxWidth: '100%' }}>
+        <section className="editor-preview-pane" style={{ position: 'relative', display: 'flex', justifyContent: 'center' }}>
+          <button className="btn btn-glass btn-sm" onClick={goBack} style={{ position: 'absolute', top: 8, left: 8, zIndex: 10 }}>
+            <span className="material-symbols-outlined" style={{ fontSize: 15 }}>arrow_back</span>
+          </button>
+          <button
+            type="button"
+            className="btn btn-solid-white btn-sm"
+            disabled={exporting || !clipUrl}
+            onClick={handleExport}
+            style={{ position: 'absolute', top: 8, right: 8, zIndex: 10 }}
+          >
+            {exporting ? (
+              <span className="material-symbols-outlined anim-spin" style={{ fontSize: 15 }}>progress_activity</span>
+            ) : (
+              <span className="material-symbols-outlined" style={{ fontSize: 15, fontVariationSettings: "'FILL' 1" }}>download</span>
+            )}
+            {exporting ? 'Exporting…' : 'Export'}
+          </button>
+          <div className="glass-strong editor-preview-shell" style={{ width: previewPanelWidth, maxWidth: '100%', position: 'relative' }}>
             <div className="editor-stage-shell" style={{ width: stageWidth }}>
               <div className="editor-stage-wrap" style={{ width: stageWidth, height: stageHeight }}>
                 <div className="editor-stage-frame" style={{ width: stageWidth, height: stageHeight }}>
@@ -1174,13 +1230,14 @@ export default function Editor() {
                     )}
 
                     {/* BLURRED BACKGROUND VIDEO PREVIEWER */}
-                    {bgType === 'blur' && videoReady && (!playing || foregroundPlaying) ? (
-                      <div style={{ position: 'absolute', inset: 0, overflow: 'hidden', opacity: 1, zIndex: 0 }}>
+                    {bgType === 'blur' && videoReady ? (
+                      <div style={{ position: 'absolute', inset: 0, overflow: 'hidden', opacity: (!playing || foregroundPlaying) ? 1 : 0, zIndex: 0 }}>
                         <video
                           ref={bgVideoRef}
                           src={clipUrl}
                           muted
                           playsInline
+                          loop
                           preload="auto"
                           crossOrigin="anonymous"
                           style={{
@@ -1341,31 +1398,31 @@ export default function Editor() {
               </div>
             </div>
 
-            {/* TIMELINE MEDIA CONTROLS BAR: Play progress bar, volume boost range, timestamps */}
-            <div className="glass-thin editor-playbar" style={{ width: stageWidth }}>
+            {/* TIMELINE MEDIA CONTROLS BAR */}
+            <div className="glass-thin editor-playbar" style={{ width: stageWidth, flexDirection: 'column', gap: 6, padding: '8px 12px' }}>
 
-              {/* Play / Pause click */}
-              <button type="button" className="btn btn-solid-white btn-sm" onClick={() => setPlaying(prev => !prev)}>
-                <span className="material-symbols-outlined" style={{ fontSize: 18, fontVariationSettings: "'FILL' 1" }}>
-                  {playing ? 'pause' : 'play_arrow'}
-                </span>
-                {playing ? 'Pause' : 'Play'}
-              </button>
+              {/* Row 1: Play + progress + time */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%' }}>
+                <button type="button" className="btn btn-solid-white btn-sm" style={{ flexShrink: 0 }} onClick={() => setPlaying(prev => !prev)}>
+                  <span className="material-symbols-outlined" style={{ fontSize: 18, fontVariationSettings: "'FILL' 1" }}>
+                    {playing ? 'pause' : 'play_arrow'}
+                  </span>
+                </button>
 
-              {/* Progress seeker timeline tracks */}
-              <div className="editor-progress">
-                <div className="editor-time-row">
-                  <span>{formatTime(currentTime)}</span>
-                  <span>{formatTime(duration)}</span>
-                </div>
-                <div className="editor-progress-track" onClick={handleSeek}>
-                  <div className="editor-progress-fill" style={{ width: `${duration > 0 ? (currentTime / duration) * 100 : 0}%` }} />
+                <div className="editor-progress" style={{ flex: 1 }}>
+                  <div className="editor-time-row">
+                    <span>{formatTime(currentTime)}</span>
+                    <span>{formatTime(duration)}</span>
+                  </div>
+                  <div className="editor-progress-track" onClick={handleSeek}>
+                    <div className="editor-progress-fill" style={{ width: `${duration > 0 ? (currentTime / duration) * 100 : 0}%` }} />
+                  </div>
                 </div>
               </div>
 
-              {/* Volume boosters slider (Range runs up to 200%) */}
-              <div className="row" style={{ minWidth: 160, gap: 8 }}>
-                <span className="material-symbols-outlined" style={{ fontSize: 16, color: 'var(--text-soft)' }}>
+              {/* Row 2: Volume */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%' }}>
+                <span className="material-symbols-outlined" style={{ fontSize: 15, color: 'var(--text-soft)', flexShrink: 0 }}>
                   {volume === 0 ? 'volume_off' : volume < 0.5 ? 'volume_down' : 'volume_up'}
                 </span>
                 <input
@@ -1378,35 +1435,37 @@ export default function Editor() {
                   onChange={event => setVolume(parseFloat(event.target.value))}
                   style={{ flex: 1 }}
                 />
-                <span
-                  style={{
-                    fontSize: 12,
-                    width: 36,
-                    textAlign: 'right',
-                    fontWeight: volume > 1.0 ? '700' : '500',
-                    color: volume > 1.0 ? '#a0d83e' : 'var(--text-soft)',
-                  }}
-                >
+                <span style={{ fontSize: 11, width: 34, textAlign: 'right', flexShrink: 0, fontWeight: volume > 1.0 ? 700 : 500, color: volume > 1.0 ? '#a0d83e' : 'var(--text-soft)' }}>
                   {Math.round(volume * 100)}%
                 </span>
               </div>
             </div>
 
-            {/* Canvas aspect crop summary footer */}
-            <div className="editor-preview-footer">
-              <span>Live preview</span>
-              <span>Crop {ratio}</span>
-              {clip.start_time != null && clip.end_time != null ? (
-                <span>{formatTime(clip.start_time)} - {formatTime(clip.end_time)}</span>
-              ) : null}
-            </div>
 
           </div>
         </section>
 
 
         {/* RIGHT COLUMN: The editor dashboard panel switches tab forms */}
-        <aside className={`editor-control-pane${wideControls ? ' editor-control-pane-wide' : ''}`}>
+        <aside className={controlPaneClass}>
+
+          <div className="editor-sheet-handle-row">
+            <button
+              type="button"
+              className="editor-sheet-grip"
+              aria-label="Resize editor settings"
+              onPointerDown={startMobileSheetDrag}
+              onKeyDown={handleSheetKeyDown}
+            >
+              <span />
+            </button>
+            <button type="button" className="editor-sheet-toggle" onClick={toggleMobileSheet}>
+              <span>Settings</span>
+              <span className="material-symbols-outlined">
+                {mobileSheet === 'full' ? 'keyboard_arrow_down' : 'keyboard_arrow_up'}
+              </span>
+            </button>
+          </div>
 
           {/* Editor control tabs header */}
           <section className="editor-card">
@@ -1435,8 +1494,20 @@ export default function Editor() {
                 <div className="editor-panel-column">
                   <label className="editor-field">
                     <span className="text-label">Overlay text</span>
-                    <textarea className="glass-input" rows={4} value={customText} onChange={event => setCustomText(cleanOverlayText(event.target.value))} />
+                    <textarea className="glass-input" rows={2} style={{ minHeight: 52, resize: 'none' }} value={customText} onChange={event => setCustomText(event.target.value)} />
                   </label>
+
+                  {/* Apply the exact overlay text that was on the original input video */}
+                  {clip?.original_overlay ? (
+                    <button
+                      className="btn btn-glass btn-sm"
+                      style={{ textAlign: 'left', whiteSpace: 'normal', padding: '8px 12px' }}
+                      onClick={() => setCustomText(cleanOverlayText(clip.original_overlay))}
+                    >
+                      <span className="material-symbols-outlined" style={{ fontSize: 15, marginRight: 6 }}>restore</span>
+                      Use original input text
+                    </button>
+                  ) : null}
 
                   {/* AI hook helpers picker */}
                   {clip?.overlay_texts?.length > 1 && (
@@ -1659,23 +1730,28 @@ export default function Editor() {
                 {/* Preset background swatches grid selector */}
                 <div className="editor-field">
                   <span className="text-label">Background colors</span>
-                  <div className="background-color-grid">
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 4 }}>
                     {BACKGROUND_COLORS.map(color => {
                       const active = bgType === 'custom' && bgCustomColor.toLowerCase() === color.value
                       return (
                         <button
                           key={color.value}
                           type="button"
-                          className={`background-color-swatch${active ? ' active' : ''}`}
-                          style={{ background: color.value }}
                           title={color.label}
-                          onClick={() => {
-                            setBgType('custom')
-                            setBgCustomColor(color.value)
+                          onClick={() => { setBgType('custom'); setBgCustomColor(color.value) }}
+                          style={{
+                            width: 28,
+                            height: 28,
+                            borderRadius: '50%',
+                            background: color.value,
+                            border: active ? '2.5px solid #fff' : '2px solid rgba(255,255,255,0.15)',
+                            boxShadow: active ? '0 0 0 2px rgba(255,255,255,0.5)' : 'none',
+                            cursor: 'pointer',
+                            padding: 0,
+                            flexShrink: 0,
+                            transition: 'transform 0.15s, box-shadow 0.15s',
                           }}
-                        >
-                          <span>{color.label}</span>
-                        </button>
+                        />
                       )
                     })}
                   </div>
@@ -1701,7 +1777,40 @@ export default function Editor() {
               </div>
             ) : null}
 
-            {/* TAB 5: BRADING LOGO UPLOADER */}
+            {/* TAB 5: IG CAPTION */}
+            {tab === 'igcaption' ? (
+              <div className="editor-form">
+                <div className="row-wrap" style={{ justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span className="text-label">Instagram Caption</span>
+                  <button
+                    type="button"
+                    className="btn btn-glass btn-sm"
+                    style={{ gap: 4 }}
+                    onClick={() => {
+                      if (!captionText) return
+                      navigator.clipboard.writeText(captionText).then(() => {
+                        setCaptionCopied(true)
+                        setTimeout(() => setCaptionCopied(false), 2000)
+                      })
+                    }}
+                  >
+                    <span className="material-symbols-outlined" style={{ fontSize: 15 }}>
+                      {captionCopied ? 'check' : 'content_copy'}
+                    </span>
+                    {captionCopied ? 'Copied!' : 'Copy'}
+                  </button>
+                </div>
+                <textarea
+                  className="glass-input editor-caption"
+                  value={captionText || 'Caption will appear here after processing.'}
+                  onChange={e => setCaptionText(e.target.value)}
+                  rows={10}
+                  style={{ resize: 'vertical', minHeight: 180, lineHeight: 1.6, fontSize: 13 }}
+                />
+              </div>
+            ) : null}
+
+            {/* TAB 6: BRANDING LOGO UPLOADER */}
             {tab === 'logo' ? (
               <div className="editor-form">
 
@@ -1776,54 +1885,6 @@ export default function Editor() {
 
           </section>
 
-          {/* INSTAGRAM POST CAPTION CONTAINER: Displays text copy block. Includes copy buttons. */}
-          <section className="editor-card stack">
-            <div className="row-wrap" style={{ justifyContent: 'space-between', alignItems: 'center' }}>
-              <h3 className="editor-section-title" style={{ margin: 0 }}>Instagram Caption</h3>
-
-              {/* Copy caption button */}
-              <button
-                type="button"
-                className="btn btn-glass btn-sm"
-                style={{ gap: 4 }}
-                onClick={() => {
-                  if (!captionText) return
-                  navigator.clipboard.writeText(captionText).then(() => {
-                    setCaptionCopied(true)
-                    setTimeout(() => setCaptionCopied(false), 2000)
-                  })
-                }}
-              >
-                <span className="material-symbols-outlined" style={{ fontSize: 15 }}>
-                  {captionCopied ? 'check' : 'content_copy'}
-                </span>
-                {captionCopied ? 'Copied!' : 'Copy'}
-              </button>
-            </div>
-
-            <textarea
-              className="glass-input editor-caption"
-              value={captionText || 'Caption will appear here after processing.'}
-              onChange={e => setCaptionText(e.target.value)}
-              rows={3}
-              style={{ resize: 'vertical', minHeight: 70, lineHeight: 1.5, fontSize: 12 }}
-            />
-          </section>
-
-          {/* PRIMARY RENDER VIDEO TRIGGER BUTTON */}
-          <button type="button" className="btn btn-solid-white btn-lg" disabled={exporting || !clipUrl} onClick={handleExport}>
-            {exporting ? (
-              <>
-                <span className="material-symbols-outlined anim-spin" style={{ fontSize: 18 }}>progress_activity</span>
-                Exporting
-              </>
-            ) : (
-              <>
-                <span className="material-symbols-outlined" style={{ fontSize: 18, fontVariationSettings: "'FILL' 1" }}>download</span>
-                Export Clip
-              </>
-            )}
-          </button>
 
         </aside>
       </div>

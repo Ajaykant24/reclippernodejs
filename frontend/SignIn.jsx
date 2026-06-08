@@ -61,14 +61,14 @@ export default function SignInPage() {
       AUTH BASE LAYER: Centered authentication viewport wrapper.
       - Styled by .auth-shell (index.css).
     */
-    <div className="auth-shell">
+    <div className="auth-shell mobile-page mobile-auth-page">
       
       {/* 
         AUTH CARD WRAPPER:
         - The centered container holding the form elements.
         - Styled by .auth-card in index.css (glass borders, box shadows).
       */}
-      <section className="auth-card">
+      <section className="auth-card mobile-auth-card">
         <span className="eyebrow">Welcome back</span>
         <h1>Sign in to Reclipper</h1>
         <p>Continue to your projects, editor, export review, and caption workflow.</p>

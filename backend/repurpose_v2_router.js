@@ -10,6 +10,7 @@ const {
   probeVideo,
   detectAndCrop,
   renderOverlayText,
+  freshenVideo,
 } = require('./repurpose_v2_pipeline')
 const { runGeminiPipeline } = require('./repurpose_v2_ai')
 const { generateThumbnail } = require('./video_processor')
@@ -47,6 +48,8 @@ async function runPipeline(
   intensity,
   logoPath,
   userId,
+  overlayMode = 'generated',
+  originalOverlay = '',
 ) {
   try {
     update(jobId, { status: 'probing', progress: 5 })
@@ -86,7 +89,8 @@ async function runPipeline(
     }
 
     update(jobId, { status: 'generating_ai', progress: 55 })
-    const ai = await runGeminiPipeline(workingVideoPath, intensity, normalizedRatio, 'relatable')
+    // Use original uploaded video for transcription (has clean audio, not processing artifact)
+    const ai = await runGeminiPipeline(videoPath, intensity, normalizedRatio, 'relatable', overlayMode, originalOverlay)
     const overlays = ai.overlays
     const caption = ai.caption
 
@@ -97,10 +101,18 @@ async function runPipeline(
       writeJson,
     } = require('./main')
 
+    update(jobId, { status: 'finalizing', progress: 88 })
+    const freshenedPath = path.join(workDir, 'freshened.mp4')
+    const freshenResult = await freshenVideo(workingVideoPath, freshenedPath)
+    if (!freshenResult.success) {
+      console.warn('[repurpose_v2] freshenVideo failed, using unfreshened:', freshenResult.error)
+    }
+    const sourceForFinal = (freshenResult.success && fs.existsSync(freshenedPath)) ? freshenedPath : workingVideoPath
+
     update(jobId, { status: 'finalizing', progress: 93 })
     const finalFilename = `repurposed_v2_${jobId}.mp4`
     const finalPath = path.join(CLIPS_DIR, finalFilename)
-    fs.copyFileSync(workingVideoPath, finalPath)
+    fs.copyFileSync(sourceForFinal, finalPath)
 
     const baseClipId = `repurposed_v2_${jobId}`
     await generateThumbnail(finalPath, baseClipId)
@@ -127,6 +139,7 @@ async function runPipeline(
       hook: overlays.length ? overlays[0] : 'Repurposed Clip',
       clip_caption: caption,
       overlay_texts: overlays,
+      original_overlay: originalOverlay,
       analysis_source: 'repurpose_v2',
     }
 
@@ -152,6 +165,8 @@ async function runPipeline(
       project_id: projectId,
       work_dir: workDir,
       canvas_path: workingVideoPath,
+      background_type: backgroundType,
+      background_color: backgroundColor,
       canvas_w: canvasW,
       canvas_h: canvasH,
     })
@@ -198,6 +213,8 @@ router.post('/', upload.fields([
     const backgroundColor = String(req.body.background_color || '#000000')
     const outputRatio = String(req.body.output_ratio || 'original')
     const intensity = String(req.body.intensity || 'medium')
+    const overlayMode = String(req.body.overlay_mode || 'generated')
+    const originalOverlay = String(req.body.original_overlay || '').trim()
 
     JOBS[jobId] = {
       job_id: jobId,
@@ -222,6 +239,8 @@ router.post('/', upload.fields([
         intensity,
         logoPath,
         user.user_id,
+        overlayMode,
+        originalOverlay,
       )
     })
 
@@ -301,6 +320,8 @@ router.post('/rerender', express.json(), async (req, res, next) => {
       req.body.overlay_text,
       job.canvas_w || 1080,
       job.canvas_h || 1920,
+      job.background_type || 'black',
+      job.background_color || '#000000',
     )
     if (!result.success) throw httpError(500, `Re-render failed: ${result.error || 'unknown'}`)
     res.json({ video_url: `/api/v2/repurpose/download/${rerenderFilename}` })

@@ -17,88 +17,90 @@ function loadEnvFile(filePath) {
 
 loadEnvFile(path.join(BASE_DIR, '.env'))
 
-const GEMINI_API_KEY = process.env.GEMINI_API_KEY || ''
-const GEMINI_MODEL = process.env.GEMINI_MODEL || 'gemini-2.5-flash'
-
 let client = null
+let clientKey = null
+
+function getApiKey() {
+  return process.env.GEMINI_API_KEY || ''
+}
+
+function getModel() {
+  return process.env.GEMINI_MODEL || 'gemini-2.5-flash'
+}
 
 function hasGeminiKey() {
-  return Boolean(GEMINI_API_KEY && GEMINI_API_KEY !== 'put_your_gemini_api_key_here')
+  const key = getApiKey()
+  return Boolean(key && key !== 'put_your_gemini_api_key_here')
 }
 
 function getClient() {
   if (!hasGeminiKey()) throw new Error('GEMINI_API_KEY not set')
-  if (!client) {
+  const key = getApiKey()
+  // Recreate client if key changed
+  if (!client || clientKey !== key) {
     const { GoogleGenAI } = require('@google/genai')
-    client = new GoogleGenAI({ apiKey: GEMINI_API_KEY })
+    client = new GoogleGenAI({ apiKey: key })
+    clientKey = key
   }
   return client
 }
 
-const OVERLAY_PROMPT = `You are the admin of a highly popular, relatable meme page based in the United States. You treat your audience like your close friends and group chat.
-Your job is to deeply analyze the video transcript and generate 20 highly relatable, viral-worthy overlay texts.
+const OVERLAY_PROMPT = `You run a viral meme page with 2M followers. Someone sent you this transcript and you need to write 20 overlay texts to put on the video before reposting it.
 
-Here is the transcript of the video clip:
-{transcript}
+Transcript: "{transcript}"
 
-Return your response in strict JSON format:
-{{
-  "overlays": [
-    {{ "tone": "Tone Name", "text": "Overlay text with emoji" }}
-  ]
-}}
+Write 20 overlay texts. Each one must be the REACTION or REFRAME — what the viewer feels, thinks, or would text their group chat — NOT a summary of what was said. Every line must be specific to this exact transcript. No generic lines that could work on any video.
 
-Ensure exactly 20 overlay texts are generated.
+Mix these styles across the 20:
+- Reaction: "bro really said that with his whole chest"
+- Universal: "every American watching this rn"
+- POV: "POV: you just realized nothing is changing"
+- Call-out: "they really thought we wouldn't notice"
+- Tag-a-friend: "send this to someone who still believes it"
+- Inner monologue: "me pretending i'm fine after hearing this"
+- Dark humor: "my bank account and my patience: both gone"
+- Validation: "ngl he said what nobody else had the guts to say"
 
-### 20 OVERLAY TEXTS
-Analyze the video carefully — its visuals, energy, pacing, expressions, actions, and implied emotion. Then generate exactly 20 overlay text options.
+Rules: under 15 words each, casual American slang, end each line with one fitting emoji from: 😭 💀 🔥 😤 👀 🤯 💸 😮‍💨 🫠 🤡 😐 🙃 💔 👏 🫡
 
-Each overlay text must:
-- Be punchy, engaging, and built for mobile screens (1-2 lines long to create a strong hook)
-- Be written in one of these distinct tones/styles tailored to US meme culture: POV (Point of View), Highly Relatable / "Me IRL", US Internet Slang / Gen-Z, Sarcastic / Dry Humor, Unhinged / Chaotic, Nostalgic / Shared Experience, Bro-coded / Group Chat Energy, or Self-Deprecating.
-- CRITICAL: Directly reflect the SPECIFIC dialogue, actions, or unique situation happening in the video.
-- CRITICAL: DO NOT use generic meme tropes (e.g., "me at 2am", "my last brain cell", "corporate job", "my boss"). The text MUST feel like it was written specifically for this exact video clip.
-- Make a viewer stop scrolling
-- Include a matching emoji IN THE TEXT ITSELF, not in the tone label.
-`
+Output only the 20 lines, numbered 1 to 20. No other text.`
 
 const CAPTION_PROMPT = `You are an elite Instagram caption writer who specializes in viral short-form content for American audiences. You understand parasocial psychology, cultural timing, emotional resonance, and what makes people stop mid-scroll.
 
-Here is the transcript of the video clip:
+TRANSCRIPT:
 {transcript}
 
-Watch the entire transcript. Do not skim. Then extract:
-
-Context Layer:
-- Every person visible — full legal name or widely-known identity, what they've done that matters, why this specific audience cares about them right now
-- Exact scene, location, event, era, and emotional stakes — infer confidently and specifically if not explicitly shown. Never hedge. Never say "appears to be."
-- The single sharpest viral moment in the video — the 2-second clip someone would screenshot and why it psychologically lands
-- The dominant emotional frequency: chaotic, tender, triumphant, raw, unhinged, nostalgic, surreal, legendary
-
+Watch the entire video. Do not skim. Then extract:
+Context Layer
+Every person visible — full legal name or widely-known identity, what they've done that matters, why this specific audience cares about them right now
+Exact scene, location, event, era, and emotional stakes — infer confidently and specifically if not explicitly shown. Never hedge. Never say "appears to be."
+The single sharpest viral moment in the video — the 2-second clip someone would screenshot and why it psychologically lands
+The dominant emotional frequency: chaotic, tender, triumphant, raw, unhinged, nostalgic, surreal, legendary
 Caption Structure — one flowing piece, no headings, no bullets, no bold labels, pure paragraphs:
-1. Hook line — your single most important sentence. It must create a gap the reader needs to close. Match the video's exact emotional register. Funny = deadpan or absurdist. Intense = declarative and sharp. Emotional = intimate and immediate. Never open with a question. Never open with "This is..." or "Watch as..." Never be generic.
-2. The full story — real names, real context, real stakes. Write like you're voice-messaging your culturally-fluent American friend who's completely off the grid. Assume they're smart. Don't over-explain. Give them the vivid, specific version — the one that makes them feel like they were there.
-3. The layer nobody caught — 2-3 lines of background, history, or context that reframes what they just watched. Make them feel like insiders. This is what earns saves and shares.
-4. The cultural mirror — one tight paragraph connecting this moment to something Americans are collectively feeling, living through, or nostalgic about right now. Not a reference — a resonance. The "this is bigger than the video" beat.
-5. The closer — one single line that leaves them with an emotion. Not a summary. An aftertaste. Make them feel seen, fired up, nostalgic, proud, or devastated. This line determines whether they share it.
-
-Emoji selection logic — pick exactly one based on dominant energy:
+Hook line — your single most important sentence. It must create a gap the reader needs to close. Match the video's exact emotional register. Funny = deadpan or absurdist. Intense = declarative and sharp. Emotional = intimate and immediate. Never open with a question. Never open with "This is..." or "Watch as..." Never be generic.
+The full story — real names, real context, real stakes. Write like you're voice-messaging your culturally-fluent American friend who's completely off the grid. Assume they're smart. Don't over-explain. Give them the vivid, specific version — the one that makes them feel like they were there.
+The time arc (this is the heart of the caption — make it richly detailed) — give the full context across three beats:
+  • PAST: the backstory, history, or chain of events that led to this exact moment. Who these people are, what they've done before, what built up to this.
+  • PRESENT: what is actually happening on screen right now and why it matters in this exact instant — the stakes, the tension, the why-now.
+  • FUTURE: what this signals, sets in motion, or foreshadows — the ripple effect, what comes next, why it'll still matter.
+The layer nobody caught — 2–3 lines of background, history, or context that reframes what they just watched. Make them feel like insiders. This is what earns saves and shares.
+The American mirror — one detailed paragraph (this video is for a U.S. audience) connecting this moment directly to what Americans are collectively feeling, living through, debating, or nostalgic about right now. Make the relatability explicit and specific to American life, culture, politics, or memory — not vague. The "this is bigger than the video, this is about us" beat.
+The closer — one single line that leaves them with an emotion. Not a summary. An aftertaste. Make them feel seen, fired up, nostalgic, proud, or devastated. This line determines whether they share it.
+Emoji selection logic — end the caption with exactly one emoji based on dominant energy:
 🔥 hype / legendary moment | 😭 emotional / heartbreaking | 💀 chaotic / unhinged funny | 🫡 deep respect / tribute | 👏 genuinely inspiring | 🤯 mind-blowing / surreal
-
 Non-negotiable rules:
-- Hard cap: under 200 words total
-- Zero hashtags — anywhere
-- Zero vague language: never write "a man," "someone," "a woman," "an athlete," "a celebrity" — always the real name or a specific earned title
-- Never use filler transitions: "In this video," "As you can see," "It's clear that"
-- If exact details are unknown, make a confident, specific, educated inference — commit to it. Vagueness kills virality.
-- No passive voice. No hedging. No corporate-sounding phrases.
-- Every single line must justify its existence. If it doesn't add emotion, context, or forward momentum — cut it.
-- Write like a real person with taste, not a content template with a pulse
-
+Word range: aim for 180–280 words — detailed and rich, never thin or generic, but never padded with filler
+Zero hashtags — anywhere
+Do NOT include any call-to-action, follow prompt, credit line, handle, or @mention (e.g. "Follow @...", "DM @...", "Credit to...") — none of that, ever
+Zero vague language: never write "a man," "someone," "a woman," "an athlete," "a celebrity" — always the real name or a specific earned title
+Never use filler transitions: "In this video," "As you can see," "It's clear that"
+If exact details are unknown, make a confident, specific, educated inference — commit to it. Vagueness kills virality.
+No passive voice. No hedging. No corporate-sounding phrases.
+Every single line must justify its existence. If it doesn't add emotion, context, or forward momentum — cut it.
+Write like a real person with taste, not a content template with a pulse
 Quality bar: Before you output — ask yourself: would someone screenshot this caption specifically? If not, rewrite it.
 
-Return ONLY the caption text. No JSON. No labels. No headings. Just the raw caption paragraph(s) followed by the single emoji.
-`
+Return ONLY the caption. No labels, no headings, no JSON. Raw caption text followed by the single emoji.`
 
 const DEFAULT_OVERLAYS = [
   'wait for it 👀', 'this changed everything', 'the ending got me', "we've all been here",
@@ -133,14 +135,19 @@ async function callGemini(prompt, jsonMode = true, videoFile = null) {
   const contents = videoFile != null
     ? [createPartFromUri(videoFile.uri, videoFile.mimeType), prompt]
     : prompt
-  const response = await ai.models.generateContent({
-    model: GEMINI_MODEL,
-    contents,
-    config: {
-      temperature: 1.0,
-      responseMimeType: jsonMode ? 'application/json' : 'text/plain',
-    },
-  })
+  const config = { temperature: 1.0 }
+  if (jsonMode) config.responseMimeType = 'application/json'
+  const timeout = new Promise((_, reject) =>
+    setTimeout(() => reject(new Error('Gemini request timed out after 120s')), 120000)
+  )
+  const response = await Promise.race([
+    ai.models.generateContent({
+      model: getModel(),
+      contents,
+      config,
+    }),
+    timeout,
+  ])
   return response.text
 }
 
@@ -161,62 +168,129 @@ async function uploadVideoForGemini(videoPath) {
   return uploaded
 }
 
+async function callGeminiWithRetry(prompt, jsonMode, videoFile, retries = 5) {
+  for (let attempt = 1; attempt <= retries; attempt++) {
+    try {
+      return await callGemini(prompt, jsonMode, videoFile)
+    } catch (err) {
+      const msg = String(err.message || '')
+      const is503 = msg.includes('503') || msg.includes('UNAVAILABLE') || msg.includes('high demand') || msg.includes('overloaded')
+      const is429 = msg.includes('429') || msg.includes('quota') || msg.includes('RESOURCE_EXHAUSTED')
+      if ((is503 || is429) && attempt < retries) {
+        const base = attempt * 10000
+        const jitter = Math.floor(Math.random() * 4000)
+        const wait = base + jitter
+        console.warn(`[repurpose_v2_ai] Gemini ${is429 ? '429' : '503'}, retrying in ${(wait/1000).toFixed(1)}s (attempt ${attempt}/${retries})`)
+        await sleep(wait)
+        continue
+      }
+      throw err
+    }
+  }
+}
+
 async function generateOverlays(transcript, videoFile = null) {
   const prompt = OVERLAY_PROMPT.replace('{transcript}', transcript)
-  const rawText = await callGemini(prompt, true, videoFile)
-  const data = JSON.parse(extractJson(rawText))
-  const overlays = (data.overlays || []).filter(option => option.text).map(option => option.text)
-  return overlays.length ? overlays : [...DEFAULT_OVERLAYS]
+  let rawText
+  try {
+    rawText = await callGeminiWithRetry(prompt, false, videoFile)
+  } catch (err) {
+    console.error('[repurpose_v2_ai] Gemini overlay call failed:', err.message)
+    return [...DEFAULT_OVERLAYS]
+  }
+  console.log('[repurpose_v2_ai] Overlay raw response:', String(rawText || '').slice(0, 400))
+  const overlays = String(rawText || '')
+    .split('\n')
+    .filter(line => /^\d+\.\s+\S/.test(line.trim()))
+    .map(line => line.trim().replace(/^\d+\.\s*/, '').trim())
+    // Strip markdown bold/italic asterisks so overlays never render literal ** characters.
+    .map(line => line.replace(/\*+/g, '').trim())
+    .filter(line => line.length > 0 && line.length < 120)
+  if (overlays.length >= 5) return overlays.slice(0, 20)
+  console.warn('[repurpose_v2_ai] Could not parse overlays, only got', overlays.length, '| full raw:', String(rawText || '').slice(0, 500))
+  return [...DEFAULT_OVERLAYS]
 }
 
 async function generateCaption(transcript, videoFile = null) {
   const prompt = CAPTION_PROMPT.replace('{transcript}', transcript)
-  const caption = String(await callGemini(prompt, false, videoFile) || '').trim()
-  return caption || DEFAULT_CAPTION
+  try {
+    const caption = String(await callGeminiWithRetry(prompt, false, videoFile) || '').trim()
+    return caption || DEFAULT_CAPTION
+  } catch (err) {
+    console.error('[repurpose_v2_ai] Gemini caption call failed:', err.message)
+    return DEFAULT_CAPTION
+  }
 }
 
-async function runGeminiPipeline(videoPath, intensity = 'medium', ratio = '9:16', tone = 'relatable') {
-  let transcript = ''
-
-  if (videoPath && fs.existsSync(videoPath)) {
-    try {
-      const { transcribeVideo } = require('./transcriber')
-      const result = await transcribeVideo(videoPath)
-      if (result.success) transcript = result.transcript || ''
-      else console.warn('[repurpose_v2_ai] Whisper failed:', result.error)
-    } catch (error) {
-      console.error('[repurpose_v2_ai] Whisper exception:', error.message)
-    }
-  } else {
-    console.warn('[repurpose_v2_ai] video_path missing or not found:', videoPath)
-  }
-
-  const transcriptAvailable = Boolean(transcript.trim())
-  if (!transcriptAvailable) {
-    transcript = '[No transcript extracted. Analyze the attached video directly, including visual action, audio cues, pacing, expressions, and context.]'
-  }
-
+async function runGeminiPipeline(videoPath, intensity = 'medium', ratio = '9:16', tone = 'relatable', overlayMode = 'generated', originalOverlay = '') {
   if (!hasGeminiKey()) {
     console.warn('[repurpose_v2_ai] GEMINI_API_KEY not set — using defaults')
     return { context: {}, overlays: [...DEFAULT_OVERLAYS], caption: DEFAULT_CAPTION }
   }
 
-  let videoFile = null
+  // Step 1: Transcribe with Whisper
+  let transcript = ''
+  if (videoPath && fs.existsSync(videoPath)) {
+    try {
+      console.log('[repurpose_v2_ai] Transcribing with Whisper...')
+      const { transcribeVideo } = require('./transcriber')
+      const result = await transcribeVideo(videoPath)
+      if (result.success && result.transcript) {
+        transcript = result.transcript
+        console.log('[repurpose_v2_ai] Transcript:', transcript.slice(0, 80) + '...')
+      } else {
+        console.warn('[repurpose_v2_ai] Whisper failed:', result.error)
+      }
+    } catch (error) {
+      console.warn('[repurpose_v2_ai] Whisper exception:', error.message)
+    }
+  }
+
+  // Step 2: Fallback context if no transcript (never use filename — it's a technical path)
+  if (!transcript) {
+    transcript = '[No speech detected in this video. Generate 20 highly relatable, viral overlay texts and an Instagram caption suited for a short-form social media video clip.]'
+  }
+
+  // Step 2b: Upload the video to Gemini so the caption can describe the actual on-screen
+  // context (people, scene, era) — not just the transcript. Best-effort; falls back gracefully.
+  let captionVideoFile = null
+  if (videoPath && fs.existsSync(videoPath)) {
+    try {
+      console.log('[repurpose_v2_ai] Uploading video to Gemini for caption context...')
+      captionVideoFile = await uploadVideoForGemini(videoPath)
+    } catch (error) {
+      console.warn('[repurpose_v2_ai] Gemini video upload failed, using transcript only:', error.message)
+    }
+  }
+
+  // Step 3: Generate overlays + caption with Gemini.
+  // In 'exact' mode the user wants only the exact on-screen text — skip AI overlay generation entirely.
+  const skipOverlayGeneration = overlayMode === 'exact'
   try {
-    if (!transcriptAvailable && videoPath && fs.existsSync(videoPath)) {
-      videoFile = await uploadVideoForGemini(videoPath)
-    }
+    console.log('[repurpose_v2_ai] Sending to Gemini...')
     const [overlaysResult, captionResult] = await Promise.allSettled([
-      generateOverlays(transcript, videoFile),
-      generateCaption(transcript, videoFile),
+      skipOverlayGeneration ? Promise.resolve([]) : generateOverlays(transcript),
+      generateCaption(transcript, captionVideoFile),
     ])
-    return {
-      context: {},
-      overlays: overlaysResult.status === 'fulfilled' ? overlaysResult.value : [...DEFAULT_OVERLAYS],
-      caption: captionResult.status === 'fulfilled' ? captionResult.value : DEFAULT_CAPTION,
+    let overlays = skipOverlayGeneration
+      ? []
+      : (overlaysResult.status === 'fulfilled' ? overlaysResult.value : [...DEFAULT_OVERLAYS])
+    const caption = captionResult.status === 'fulfilled' ? captionResult.value : DEFAULT_CAPTION
+
+    // Merge original overlay: always include it, position based on mode
+    if (originalOverlay) {
+      overlays = overlays.filter(t => t !== originalOverlay)
+      if (overlayMode === 'original' || overlayMode === 'exact') {
+        overlays = [originalOverlay, ...overlays]  // exact/original text sits on top = default
+      } else {
+        overlays = [...overlays, originalOverlay]  // original appended at end
+      }
     }
+
+    console.log(`[repurpose_v2_ai] Done — ${overlays.length} overlays, caption: ${caption.slice(0, 60)}...`)
+    return { context: {}, overlays, caption }
   } catch (error) {
-    console.error('[repurpose_v2_ai] Pipeline failed:', error)
+    console.error('[repurpose_v2_ai] Gemini failed:', error.message)
     return { context: {}, overlays: [...DEFAULT_OVERLAYS], caption: DEFAULT_CAPTION }
   }
 }

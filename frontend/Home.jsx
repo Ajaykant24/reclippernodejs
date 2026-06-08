@@ -11,7 +11,7 @@ export default function HomePage() {
       PAGE BASE LAYER: Marketing Page Wrapper.
       - Styled by .marketing-page and .premium-home in index.css.
     */
-    <div className="marketing-page premium-home">
+    <div className="marketing-page premium-home mobile-page mobile-home-page">
       
       {/* 
         MARKETING NAVIGATION HEADER:
@@ -38,7 +38,7 @@ export default function HomePage() {
         - Spans two columns on desktop: Sales pitch copy on the left, visual phone mockup graphics on the right.
         - CSS styles: .premium-hero
       */}
-      <section className="premium-hero">
+      <section className="premium-hero mobile-home-hero">
         
         {/* LEFT COLUMN: Main sales text copy and call-to-action links */}
         <div className="premium-hero-copy">
@@ -91,7 +91,7 @@ export default function HomePage() {
         - Displays highlights of key product features (hooks count, caption panel, ratio).
         - Styled by .premium-proof in index.css.
       */}
-      <section className="premium-proof">
+      <section className="premium-proof mobile-stat-strip">
         <div><strong>20</strong><span>overlay hooks per clip</span></div>
         <div><strong>1</strong><span>caption panel for posting</span></div>
         <div><strong>9:16</strong><span>mobile preview workflow</span></div>
@@ -102,7 +102,7 @@ export default function HomePage() {
         - 3-column list explaining product capabilities with custom Google Material icons.
         - Styled by .premium-feature-grid in index.css.
       */}
-      <section className="premium-feature-grid">
+      <section className="premium-feature-grid mobile-feature-list">
         
         {/* Column 1: AI Hooks */}
         <article>

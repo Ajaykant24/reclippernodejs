@@ -20,10 +20,10 @@ export default function PricingPage() {
       PAGE BASE LAYER: Workspace layout wrapper.
       - Styled by .workspace-page (index.css).
     */
-    <div className="workspace-page">
+    <div className="workspace-page mobile-page mobile-pricing-page">
       
       {/* HEADER HERO BANNER: Page title and marketing subhead. */}
-      <header className="workspace-hero">
+      <header className="workspace-hero mobile-page-hero">
         <div>
           <span className="eyebrow">Plans</span>
           <h1>Pricing for daily clip production.</h1>
@@ -36,7 +36,7 @@ export default function PricingPage() {
         - Layout that aligns cards in columns.
         - Styled by .pricing-grid and .premium-pricing in index.css.
       */}
-      <div className="pricing-grid premium-pricing">
+      <div className="pricing-grid premium-pricing mobile-card-stack">
         {/* LOOPS THROUGH PLAN LIST: Takes each plan array entry and builds a card. */}
         {plans.map((plan, index) => (
           /* 

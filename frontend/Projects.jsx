@@ -1,4 +1,4 @@
-// ── PROJECTS MANAGER BOARD: Projects.jsx ──
+// â”€â”€ PROJECTS MANAGER BOARD: Projects.jsx â”€â”€
 // - Purpose: This is your projects folder library dashboard page.
 // - Features: 
 //   1. Displays completed and active background processing clips side-by-side using Bento Grids.
@@ -9,9 +9,9 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { api, API_BASE } from './api/client'
+import { api, API_BASE, resolveUrl } from './api/client'
 
-// ── PREVIEW CANVAS CONSTANTS (COORDINATES SYSTEM) ──
+// â”€â”€ PREVIEW CANVAS CONSTANTS (COORDINATES SYSTEM) â”€â”€
 // - Purpose: Defines strict size boundaries for the mobile simulator mockups on this page.
 const STAGE_W = 405             // Width of the mobile preview simulator stage
 const STAGE_H = 720             // Height of the mobile preview simulator stage
@@ -26,7 +26,22 @@ const TEXT_VIDEO_GAP = 14       // Distance in pixels between the text overlay b
 // HELPER: Keeps any number strictly locked between a minimum and maximum value
 const clamp = (value, min, max) => Math.max(min, Math.min(max, value))
 
-// ── UTILITY DATA FORMATTERS ──
+// HELPER: Picks a readable overlay text color for a given canvas background.
+// - White background -> black text; custom color -> black/white by luminance; otherwise white.
+function overlayTextColor(bgType, bgColor) {
+  if (bgType === 'white') return '#000000'
+  if (bgType === 'custom') {
+    const hex = String(bgColor || '#000000').replace('#', '')
+    const r = parseInt(hex.slice(0, 2), 16) || 0
+    const g = parseInt(hex.slice(2, 4), 16) || 0
+    const b = parseInt(hex.slice(4, 6), 16) || 0
+    const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255
+    return luminance > 0.6 ? '#000000' : '#ffffff'
+  }
+  return '#ffffff'
+}
+
+// â”€â”€ UTILITY DATA FORMATTERS â”€â”€
 
 function formatDate(iso) {
   // Purpose: Converts server timestamp dates (e.g. 2026-05-28...) into readable dates (e.g. "May 28, 2026")
@@ -109,8 +124,10 @@ function buildRepurposePreview(clip) {
   const maxLineChars = Math.max(...lines.map(line => line.length), 1)
   const textSideMargin = clamp(videoBox.w * 0.1, 22, 44)
   const textW = Math.max(90, videoBox.w - textSideMargin * 2)
-  const overflowSafeSize = Math.floor(textW / (maxLineChars * 0.56))
-  const renderedFontSize = clamp(Math.min(fontSize, overflowSafeSize || fontSize), 14, fontSize)
+  const overflowSafeSize = Math.floor(textW / (maxLineChars * 0.46))
+  // Never shrink below the actual export's text size (~STAGE_W * 0.055 ≈ 22px in stage units),
+  // so the card preview and its direct download match the real overlay size instead of looking smaller.
+  const renderedFontSize = clamp(Math.min(fontSize, overflowSafeSize || fontSize), 22, fontSize)
   const lineH = renderedFontSize * 1.32
   const textH = lines.length * lineH
   const textBox = {
@@ -122,7 +139,7 @@ function buildRepurposePreview(clip) {
   return { text, lines, videoBox, textBox, fontSize: renderedFontSize }
 }
 
-function makeOverlayImage({ lines, textBox, fontSize }) {
+function makeOverlayImage({ lines, textBox, fontSize, textColor = '#ffffff' }) {
   // Purpose: Pure wizardry! Draws text hook overlays onto an invisible HTML5 canvas element inside the browser,
   // converts that canvas to a transparent PNG base64 string, and passes it to the Python server.
   // This ensures the exported video titles match the font spacing, line breaks, and positions you see on screen perfectly.
@@ -144,7 +161,7 @@ function makeOverlayImage({ lines, textBox, fontSize }) {
   ctx.font = `400 ${exportFontSize}px -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", "Segoe UI", "Segoe UI Emoji", "Apple Color Emoji", sans-serif`
   ctx.textBaseline = 'top'
   ctx.textAlign = 'center'
-  ctx.fillStyle = '#ffffff'
+  ctx.fillStyle = textColor
 
   const lineHeight = exportFontSize * 1.25
   const gap = Math.round(exportFontSize * 0.18)
@@ -156,17 +173,17 @@ function makeOverlayImage({ lines, textBox, fontSize }) {
   return canvas.toDataURL('image/png')
 }
 
-// ── PIPELINE STATE TEXT DICTIONARIES ──
+// â”€â”€ PIPELINE STATE TEXT DICTIONARIES â”€â”€
 // - Maps raw backend states to friendly, plain English statuses
 const STATUS_LABEL = {
   queued: 'Queued',
-  probing: 'Reading video…',
-  cropping: 'Cropping…',
-  composing: 'Composing…',
-  analyzing: 'Analyzing…',
-  generating_ai: 'AI generating hooks…',
-  rendering: 'Rendering…',
-  finalizing: 'Finalizing…',
+  probing: 'Reading videoâ€¦',
+  cropping: 'Croppingâ€¦',
+  composing: 'Composingâ€¦',
+  analyzing: 'Analyzingâ€¦',
+  generating_ai: 'AI generating hooksâ€¦',
+  rendering: 'Renderingâ€¦',
+  finalizing: 'Finalizingâ€¦',
   done: 'Done',
   failed: 'Failed',
   interrupted: 'Interrupted',
@@ -201,7 +218,7 @@ function isRepurposeProject(project) {
 }
 
 
-// ── SUB-COMPONENT 1: DELETE CONFIRMATION DIALOG MODAL ──
+// â”€â”€ SUB-COMPONENT 1: DELETE CONFIRMATION DIALOG MODAL â”€â”€
 // - Purpose: Overlay card checking if you are sure you want to delete a project folder.
 // - Editing Tip: Change text strings inside <h3> and <p> elements below if you want to alter safety warnings.
 
@@ -256,7 +273,7 @@ function DeleteModal({ project, onConfirm, onCancel }) {
             disabled={deleting}
           >
             {deleting ? (
-              <><span className="material-symbols-outlined anim-spin" style={{ fontSize: 16 }}>progress_activity</span> Deleting…</>
+              <><span className="material-symbols-outlined anim-spin" style={{ fontSize: 16 }}>progress_activity</span> Deletingâ€¦</>
             ) : (
               <><span className="material-symbols-outlined" style={{ fontSize: 16 }}>delete</span> Delete project</>
             )}
@@ -269,7 +286,7 @@ function DeleteModal({ project, onConfirm, onCancel }) {
 }
 
 
-// ── SUB-COMPONENT 2: PROCESSING / RENDERING LOADER METER CARD ──
+// â”€â”€ SUB-COMPONENT 2: PROCESSING / RENDERING LOADER METER CARD â”€â”€
 // - Purpose: Renders progress status bars inside the Bento grid while a video is smart-cropping or generating hooks.
 // - Visuals: Features circular spinning loaders, dynamic status update labels, and sliding gradient loading bars.
 
@@ -325,7 +342,7 @@ function ProcessingCard({ job, onComplete }) {
             <span className="material-symbols-outlined" style={{ fontSize: 16, color, fontVariationSettings: "'FILL' 1" }}>error</span>
           )}
           <span style={{ fontSize: 12, fontWeight: 700, color, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-            {failed ? 'Processing failed' : done ? 'Clips ready!' : 'Processing…'}
+            {failed ? 'Processing failed' : done ? 'Clips ready!' : 'Processingâ€¦'}
           </span>
         </div>
 
@@ -363,7 +380,7 @@ function ProcessingCard({ job, onComplete }) {
 }
 
 
-// ── SUB-COMPONENT 3: LOADING PLACEHOLDER GHOST CARD ──
+// â”€â”€ SUB-COMPONENT 3: LOADING PLACEHOLDER GHOST CARD â”€â”€
 // - Purpose: Renders blurred pulsing structures on initial open, masking grid latency until databases load.
 // - Styled by .bento-skeleton in index.css.
 
@@ -380,7 +397,7 @@ function BentoSkeleton() {
 }
 
 
-// ── SUB-COMPONENT 4: REUSABLE THUMBNAIL CONTAINER WITH VECTOR WAVE FALLBACK ──
+// â”€â”€ SUB-COMPONENT 4: REUSABLE THUMBNAIL CONTAINER WITH VECTOR WAVE FALLBACK â”€â”€
 // - Purpose: Renders standard project preview images.
 // - Magic: If a thumbnail file is missing or backend offline, renders a highly stylized, moving vector wave animation SVG with glowing lines.
 
@@ -425,14 +442,14 @@ function BentoThumb({ src, title }) {
 }
 
 
-// ── SUB-COMPONENT 5: STANDARD PROJECT BENTO CARD ──
+// â”€â”€ SUB-COMPONENT 5: STANDARD PROJECT BENTO CARD â”€â”€
 // - Purpose: Renders standard Long-to-Short folders inside bento rows.
 // - Features: Display clip amount badges, titles, calendars, select checkpoints, and fast delete clicks.
 
 function BentoCard({ project, onOpen, onDelete, selectable = false, selected = false, onSelect }) {
   const clipCount = project.clips?.length || 0
   const firstThumb = project.clips?.[0]?.thumb_url
-  const thumbSrc = firstThumb ? `${API_BASE}${firstThumb}` : ''
+  const thumbSrc = firstThumb ? resolveUrl(firstThumb) : ''
   const handleOpen = () => {
     if (selectable) {
       onSelect?.(project.project_id)
@@ -497,7 +514,7 @@ function BentoCard({ project, onOpen, onDelete, selectable = false, selected = f
 }
 
 
-// ── SUB-COMPONENT 6: PREMIUM REPURPOSED AI VIDEO MINI-STAGE CARD ──
+// â”€â”€ SUB-COMPONENT 6: PREMIUM REPURPOSED AI VIDEO MINI-STAGE CARD â”€â”€
 // - Purpose: Renders specialized AI 9:16 layout boxes.
 // - Magic: Instead of a flat thumbnail image, it renders an live streaming `<video>` element!
 //   - Hovers play: When you move your cursor over this card, it automatically plays the clip muted, giving you an instant dynamic feed review.
@@ -505,10 +522,14 @@ function BentoCard({ project, onOpen, onDelete, selectable = false, selected = f
 
 function RepurposeProjectCard({ project, onEdit, onDelete, selectable = false, selected = false, onSelect }) {
   const [downloading, setDownloading] = useState(false)
+  const [downloadError, setDownloadError] = useState('')
   const clip = project.clips?.[0] || {}
-  const clipUrl = clip.clip_url ? `${API_BASE}${clip.clip_url}` : ''
+  const clipUrl = clip.clip_url ? resolveUrl(clip.clip_url) : ''
   const title = clip.hook || project.title || 'Repurposed clip'
   const [videoReady, setVideoReady] = useState(false)
+  const blurBgRef = useRef(null)
+  const bgType = clip.background_type || 'black'
+  const bgColor = bgType === 'white' ? '#ffffff' : bgType === 'custom' ? (clip.background_color || '#111827') : '#0a0a0f'
 
   useEffect(() => {
     setVideoReady(false)
@@ -516,15 +537,18 @@ function RepurposeProjectCard({ project, onEdit, onDelete, selectable = false, s
   
   // Combines coordinates logic and builds overlay PNG data
   const preview = useMemo(() => buildRepurposePreview(clip), [clip])
+  const textColor = overlayTextColor(bgType, bgColor)
   const overlayImage = useMemo(() => makeOverlayImage({
     lines: preview.lines,
     textBox: preview.textBox,
     fontSize: preview.fontSize,
-  }), [preview])
+    textColor,
+  }), [preview, textColor])
 
   // Triggers immediate download of the clip. Calls FastAPI overlay builder `/export/preview`
   const handleDownload = async () => {
     if (!clip?.clip_id || downloading) return
+    setDownloadError('')
     try {
       setDownloading(true)
       const savedRatio = getClipRatio(clip)
@@ -555,7 +579,7 @@ function RepurposeProjectCard({ project, onEdit, onDelete, selectable = false, s
       )
 
       // Downloads compiled video directly in browser
-      const fileUrl = `${API_BASE}${response.data.url}`
+      const fileUrl = resolveUrl(response.data.url)
       const downloadName = response.data.filename || `${clip.clip_id}-export.mp4`
       const link = document.createElement('a')
       link.href = fileUrl
@@ -564,6 +588,18 @@ function RepurposeProjectCard({ project, onEdit, onDelete, selectable = false, s
       document.body.appendChild(link)
       link.click()
       setTimeout(() => document.body.removeChild(link), 1000)
+    } catch (err) {
+      // Extract the most useful error detail from the server response
+      const serverDetail = err?.response?.data?.detail
+      const isNotFound = err?.response?.status === 404 || (typeof serverDetail === 'string' && serverDetail.toLowerCase().includes('not found'))
+      const msg = isNotFound
+        ? 'Clip file no longer available on the server. Please regenerate this clip.'
+        : (typeof serverDetail === 'string' ? serverDetail : null)
+          ?? err?.message
+          ?? 'Export failed. Please try again.'
+      setDownloadError(msg)
+      // Auto-dismiss the error after 5 seconds
+      setTimeout(() => setDownloadError(''), 5000)
     } finally {
       setDownloading(false)
     }
@@ -591,8 +627,25 @@ function RepurposeProjectCard({ project, onEdit, onDelete, selectable = false, s
         - Renders a black backing stage (.repurpose-card-canvas) with the scaled foreground <video> player and logo overlays inside it.
       */}
       <div className="repurpose-project-preview">
-        <div className="repurpose-card-canvas">
-          
+        <div className="repurpose-card-canvas" style={{ background: bgType === 'blur' ? '#0a0a0f' : bgColor }}>
+
+          {/* Blurred background video fill (only when the chosen background is Blur). */}
+          {bgType === 'blur' && clipUrl ? (
+            <video
+              ref={blurBgRef}
+              className="repurpose-card-blur-bg"
+              src={clipUrl}
+              muted
+              playsInline
+              loop
+              preload="metadata"
+              style={{
+                // Match the editor preview / export blur: strength * 26 px, darkened to ~0.655 luminance.
+                filter: `blur(${clamp(Number(clip.blur_opacity ?? 0.5), 0, 1) * 26}px) brightness(0.655)`,
+              }}
+            />
+          ) : null}
+
           {/* Main video streaming box wrapper. Dynamic positioning styles are mapped from calculations. */}
           <div
             className="repurpose-card-video-box"
@@ -619,10 +672,22 @@ function RepurposeProjectCard({ project, onEdit, onDelete, selectable = false, s
                 preload="metadata"
                 onLoadedData={() => setVideoReady(true)}
                 onCanPlay={() => setVideoReady(true)}
-                onMouseEnter={event => event.currentTarget.play().catch(() => {})}
+                onMouseEnter={event => {
+                  event.currentTarget.play().catch(() => {})
+                  const bg = blurBgRef.current
+                  if (bg) {
+                    bg.currentTime = event.currentTarget.currentTime
+                    bg.play().catch(() => {})
+                  }
+                }}
                 onMouseLeave={event => {
                   event.currentTarget.pause()
                   event.currentTarget.currentTime = 0
+                  const bg = blurBgRef.current
+                  if (bg) {
+                    bg.pause()
+                    bg.currentTime = 0
+                  }
                 }}
               />
             ) : (
@@ -649,7 +714,18 @@ function RepurposeProjectCard({ project, onEdit, onDelete, selectable = false, s
         <p className="bento-meta">
           <span className="material-symbols-outlined" style={{ fontSize: 12 }}>calendar_today</span>
           {formatDate(project.created_at)}
-        </p>
+        </p>        {/* Inline export error (shown when clip file is missing, e.g. wiped by Render restart) */}
+        {downloadError && (
+          <div style={{
+            display: 'flex', alignItems: 'flex-start', gap: 6,
+            padding: '8px 10px', borderRadius: 7, marginBottom: 8,
+            background: 'rgba(255, 90, 61, 0.1)',
+            border: '1px solid rgba(255, 90, 61, 0.35)',
+          }}>
+            <span className="material-symbols-outlined" style={{ fontSize: 14, color: '#ff5a3d', flexShrink: 0, marginTop: 1 }}>error</span>
+            <span style={{ fontSize: 11, color: '#ff5a3d', lineHeight: 1.4 }}>{downloadError}</span>
+          </div>
+        )}
 
         {/* Buttons (Download and Edit) */}
         <div className="repurpose-project-actions">
@@ -679,7 +755,7 @@ function RepurposeProjectCard({ project, onEdit, onDelete, selectable = false, s
 }
 
 
-// ── SUB-COMPONENT 7: DASHED "ADD NEW PROJECT" CARD BENTO ──
+// â”€â”€ SUB-COMPONENT 7: DASHED "ADD NEW PROJECT" CARD BENTO â”€â”€
 // - Purpose: Dashed placeholder card allowing users to easily launch the creation wizards.
 // - Styled by .bento-new and .bento-new-inner in index.css.
 
@@ -700,7 +776,7 @@ function NewProjectCard({ onClick, label = 'New Project', sub = 'Start from a UR
 }
 
 
-// ── PRIMARY CONTROLLER COMPONENT: PROJECTS PAGE VIEW ──
+// â”€â”€ PRIMARY CONTROLLER COMPONENT: PROJECTS PAGE VIEW â”€â”€
 
 export default function ProjectsPage() {
   const navigate = useNavigate()
@@ -865,19 +941,25 @@ export default function ProjectsPage() {
     localStorage.setItem('editClip', JSON.stringify(clip))
     localStorage.setItem('editClipList', JSON.stringify(clips))
     localStorage.setItem('editClipProjectId', project.project_id)
-    navigate(`/editor/${clip.clip_id}`)
+    navigate(`/editor/${clip.clip_id}`, {
+      state: {
+        bgType: clip.background_type || 'black',
+        bgColor: clip.background_color || '#111827',
+        blurOpacity: clip.blur_opacity ?? 0.5,
+      },
+    })
   }
 
   return (
-    <div className="proj-page">
+    <div className="proj-page mobile-page mobile-projects-page">
 
-      {/* ── SECTION A: PAGE HEADER & CONTROLS ── */}
-      <div className="proj-header">
+      {/* â”€â”€ SECTION A: PAGE HEADER & CONTROLS â”€â”€ */}
+      <div className="proj-header mobile-page-hero">
         <div>
           <h1 className="proj-heading">Projects</h1>
           {/* Library status description (Calculates length, mentions auto-delete timer) */}
           <p className="proj-subheading">
-            {loading ? 'Loading your projects…' : `${projects.length} project${projects.length !== 1 ? 's' : ''} · auto-deleted after 30 days`}
+            {loading ? 'Loading your projectsâ€¦' : `${projects.length} project${projects.length !== 1 ? 's' : ''} Â· auto-deleted after 30 days`}
           </p>
         </div>
 
@@ -892,7 +974,7 @@ export default function ProjectsPage() {
             <span className="material-symbols-outlined proj-search-icon" style={{ fontSize: 15 }}>search</span>
             <input 
               className="proj-search" 
-              placeholder="Filter projects…" 
+              placeholder="Filter projectsâ€¦" 
               value={search} 
               onChange={e => setSearch(e.target.value)} 
             />
@@ -913,7 +995,7 @@ export default function ProjectsPage() {
       </div>
 
 
-      {/* ── SECTION B: ACTIVE RENDER JOBS NOTICE BANNER ──
+      {/* â”€â”€ SECTION B: ACTIVE RENDER JOBS NOTICE BANNER â”€â”€
           - Cyan-blue colored alert panel that slides open if a background render is active.
       */}
       {hasActiveJobs && (
@@ -933,14 +1015,14 @@ export default function ProjectsPage() {
               {activeJobs.length} clip generation{activeJobs.length > 1 ? 's' : ''} in progress
             </div>
             <div style={{ fontSize: 12, color: 'var(--color-text-secondary)' }}>
-              Processing in the background — this page refreshes automatically when done.
+              Processing in the background â€” this page refreshes automatically when done.
             </div>
           </div>
         </div>
       )}
 
 
-      {/* ── SECTION C: DETAILED STATISTICS METRIC BAR ──
+      {/* â”€â”€ SECTION C: DETAILED STATISTICS METRIC BAR â”€â”€
           - Horizontal table summarising total counts, clip breakdowns, and auto-delete settings.
           - Styled by .proj-stats inside index.css.
       */}
@@ -974,36 +1056,12 @@ export default function ProjectsPage() {
       )}
 
 
-      {/* ── SECTION D: PROJECT TYPE SEGMENTED TAB SWITCHES & BULK ACTIONS ──
+      {/* â”€â”€ SECTION D: PROJECT TYPE SEGMENTED TAB SWITCHES & BULK ACTIONS â”€â”€
           - Segmented tabs allowing you to toggle between Repurpose (meme clips) vs Long-to-short dashboards.
           - Multi-delete controls appear next to the tabs if multi-select mode is turned on.
       */}
       {!loading && (
         <div className="project-toolbar">
-          
-          {/* Segmented switches */}
-          <div className="project-type-switch" role="tablist" aria-label="Project type">
-            <button
-              type="button"
-              className={`project-type-tab${activeType === 'repurpose' ? ' active' : ''}`}
-              onClick={() => setActiveType('repurpose')}
-            >
-              <span className="material-symbols-outlined" style={{ fontSize: 16 }}>transform</span>
-              Repurpose Projects
-              <strong>{repurposeProjects.length}</strong>
-            </button>
-            
-            <button
-              type="button"
-              className={`project-type-tab${activeType === 'long' ? ' active' : ''}`}
-              onClick={() => setActiveType('long')}
-            >
-              <span className="material-symbols-outlined" style={{ fontSize: 16 }}>movie</span>
-              Long-to-Short Clips
-              <strong>{longToShortProjects.length}</strong>
-            </button>
-          </div>
-
           {/* Bulk check list controls (Only visible during Select mode) */}
           {selectMode ? (
             <div className="project-bulk-actions">
@@ -1025,7 +1083,7 @@ export default function ProjectsPage() {
       )}
 
 
-      {/* ── SECTION E: CORE BENTO PROJECTS GRID ──
+      {/* â”€â”€ SECTION E: CORE BENTO PROJECTS GRID â”€â”€
           - Renders 3 grid states:
             1. Loading: Shows grey pulsing card placeholders (.bento-skeleton).
             2. Empty library placeholder (.bento-empty) with big folder icons.
@@ -1120,7 +1178,7 @@ export default function ProjectsPage() {
       )}
 
 
-      {/* ── SECTION F: POPUP MODAL WRAPPERS ── */}
+      {/* â”€â”€ SECTION F: POPUP MODAL WRAPPERS â”€â”€ */}
       <DeleteModal 
         project={deleteTarget} 
         onConfirm={handleDeleteConfirm} 
@@ -1137,3 +1195,4 @@ export default function ProjectsPage() {
     </div>
   )
 }
+

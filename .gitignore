@@ -8,6 +8,7 @@ frontend/.env
 frontend/.env.local
 frontend/.env.development.local
 frontend/.env.test.local
+frontend/.env.production
 frontend/.env.production.local
 
 # Python / Backend

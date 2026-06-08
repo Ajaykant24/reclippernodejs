@@ -16,14 +16,40 @@ import RepurposePage from './Repurpose.jsx'
 import SignInPage from './SignIn.jsx'
 import SignUpPage from './SignUp.jsx'
 
+const workspaceNavItems = [
+  { to: '/dashboard', icon: 'space_dashboard', label: 'Home' },
+  { to: '/tool', icon: 'auto_awesome', label: 'Create' },
+  { to: '/projects', icon: 'folder_open', label: 'Projects' },
+  { to: '/pricing', icon: 'payments', label: 'Plans' },
+  { to: '/profile', icon: 'account_circle', label: 'Profile' },
+]
+
+const routeTitles = {
+  '/': 'Reclipper',
+  '/signin': 'Sign in',
+  '/signup': 'Create account',
+  '/dashboard': 'Workspace',
+  '/tool': 'Create clip',
+  '/pricing': 'Plans',
+  '/export': 'Export',
+  '/profile': 'Profile',
+  '/repurpose': 'Create clip',
+  '/projects': 'Projects',
+  '/studio': 'Create clip',
+}
+
 function Shell() {
   // ROUTING HELPERS: Tracks the current browser address and handles redirects.
   const location = useLocation()
   const navigate = useNavigate()
   
   // PUBLIC PAGES: Pages that do NOT show the left-hand navigation sidebar (e.g. landing page, login page).
-  const publicRoutes = ['/', '/signin', '/signup', '/pricing']
+  const publicRoutes = ['/', '/signin', '/signup']
   const isPublicRoute = publicRoutes.includes(location.pathname)
+  const isHomeRoute = location.pathname === '/'
+  const pageTitle = location.pathname.startsWith('/editor')
+    ? (() => { try { return JSON.parse(localStorage.getItem('editClip') || '{}')?.hook || 'Editor' } catch { return 'Editor' } })()
+    : routeTitles[location.pathname] || 'Reclipper'
   
   // SESSION USER: Retrieves current logged-in user profile details from the browser cache.
   const user = JSON.parse(localStorage.getItem('user') || '{}')
@@ -41,11 +67,23 @@ function Shell() {
       - Styled by .app-shell (index.css). Splits screen into two parts: a 248px left sidebar, and a flexible right-side main panel.
       - Styled by .public-shell on public pages, which expands the viewport to 100% full screen.
     */
-    <div className={`app-shell${isPublicRoute ? ' public-shell' : ''}`}>
+    <div className={`app-shell${isPublicRoute ? ' public-shell' : ''}${location.pathname.startsWith('/editor') ? ' app-editor-shell' : ''}`}>
       
       {/* BACKGROUND GRAPHICS: Colorful dynamic floating water bubbles styled via .app-water in index.css. */}
       <div className="app-water app-water-a" />
       <div className="app-water app-water-b" />
+
+      {!isHomeRoute ? (
+        <header className="app-mobile-topbar">
+          <button type="button" className="app-mobile-back" onClick={() => navigate(-1)} aria-label="Go back">
+            <span className="material-symbols-outlined">arrow_back</span>
+          </button>
+          <div>
+            <strong>{pageTitle}</strong>
+            <small>Reclipper</small>
+          </div>
+        </header>
+      ) : null}
 
       {/* SIDEBAR: Only visible to logged-in users on private workspace paths. */}
       {!isPublicRoute ? (
@@ -69,26 +107,12 @@ function Shell() {
             - Icons are loaded from Google's Material symbols.
           */}
           <nav className="app-nav">
-            <NavLink to="/dashboard">
-              <span className="material-symbols-outlined">space_dashboard</span>
-              <span>Dashboard</span>
-            </NavLink>
-            <NavLink to="/tool">
-              <span className="material-symbols-outlined">auto_awesome</span>
-              <span>Tool</span>
-            </NavLink>
-            <NavLink to="/projects">
-              <span className="material-symbols-outlined">folder_open</span>
-              <span>Projects</span>
-            </NavLink>
-            <NavLink to="/pricing">
-              <span className="material-symbols-outlined">payments</span>
-              <span>Pricing</span>
-            </NavLink>
-            <NavLink to="/profile">
-              <span className="material-symbols-outlined">account_circle</span>
-              <span>Profile</span>
-            </NavLink>
+            {workspaceNavItems.map(item => (
+              <NavLink key={item.to} to={item.to}>
+                <span className="material-symbols-outlined">{item.icon}</span>
+                <span>{item.label}</span>
+              </NavLink>
+            ))}
           </nav>
 
           {/* USER PROFILE BOX & LOGOUT: Positioned at the bottom of the sidebar. */}
@@ -140,6 +164,20 @@ function Shell() {
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </main>
+
+      {/* MOBILE BOTTOM NAVIGATION: Only visible on mobile via CSS (display:none on desktop) */}
+      {!isPublicRoute ? (
+        <div className="app-bottom-nav">
+          <nav>
+            {workspaceNavItems.map(item => (
+              <NavLink key={`bottom-${item.to}`} to={item.to}>
+                <span className="material-symbols-outlined">{item.icon}</span>
+                <span>{item.label}</span>
+              </NavLink>
+            ))}
+          </nav>
+        </div>
+      ) : null}
 
     </div>
   )

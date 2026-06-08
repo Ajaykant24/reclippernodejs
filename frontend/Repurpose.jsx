@@ -13,48 +13,33 @@ import { api } from './api/client'
 
 // ── CANVAS BACKGROUND OPTIONS PRESETS ──
 const BG_OPTS = [
-  { id: 'black',  label: 'Black',  preview: '#0b0d10' },
-  { id: 'white',  label: 'White',  preview: '#f5efe7' },
-  { id: 'blur',   label: 'Blur',   preview: 'linear-gradient(135deg,#0b0d10,#ff5a3d)' }, // Blur uses a gradient representation in settings page
+  { id: 'black',  label: 'Black',  preview: '#0a0a0f' },
+  { id: 'white',  label: 'White',  preview: '#ffffff' },
+  { id: 'blur',   label: 'Blur',   preview: 'linear-gradient(135deg,#0a0a0f,#ff4d2e)' }, // Blur uses a gradient representation in settings page
   { id: 'custom', label: 'Custom', preview: null }, // Displays active color picker Hex on select
 ]
 
 // ── ASPECT CROP PRESENTS ──
 // - Maps ratio labels, descriptions, and Google icons.
-const RATIOS = [
-  { id: 'original', name: 'Original',  desc: 'Exact video', icon: 'fit_screen' },
-  { id: '3:2',      name: 'Wide',      desc: '3:2',         icon: 'crop_3_2' },
-  { id: '9:16',     name: 'Vertical',  desc: '9:16',        icon: 'stay_current_portrait' },
-  { id: '2:3',      name: 'Tall',      desc: '2:3',         icon: 'crop_portrait' },
-  { id: '3:4',      name: 'Portrait',  desc: '3:4',         icon: 'crop_portrait' },
-  { id: '16:9',     name: 'Landscape', desc: '16:9',        icon: 'stay_current_landscape' },
-  { id: '1:1',      name: 'Square',    desc: '1:1',         icon: 'square' },
-  { id: '4:5',      name: 'Feed',      desc: '4:5',         icon: 'crop_5_4' },
-  { id: '4:3',      name: 'Standard',  desc: '4:3',         icon: 'crop_4_3' },
-  { id: '21:9',     name: 'Cinema',    desc: '21:9',        icon: 'crop_16_9' },
-]
+const DEFAULT_RATIO = 'original'
 
 // ── INTENSITY MODIFIERS ──
 // - Determines how copyright-safe / heavily formatted the smart crop is.
-const INTENSITIES = [
-  { id: 'light',  label: 'Light',  desc: 'Subtle transform, looks similar' },
-  { id: 'medium', label: 'Medium', desc: 'Clear transformation (recommended)' },
-  { id: 'heavy',  label: 'Heavy',  desc: 'Maximum transform, most copyright-safe' },
-]
+const DEFAULT_INTENSITY = 'medium'
 
 // ── DESIGN SYSTEM THEME TOKENS ──
 const D = {
-  card:       '#161a20',
-  cardBorder: 'rgba(245,239,231,0.14)',
-  cardHover:  '#202833',
-  text:       '#f5efe7',
-  textSoft:   'rgba(245,239,231,0.72)',
-  textMuted:  'rgba(245,239,231,0.48)',
-  accent:     '#ff5a3d',
-  accentGlow: 'rgba(255,90,61,0.14)',
-  accentBorder:'rgba(255,90,61,0.42)',
-  success:    '#5ce1e6',
-  radius:     8,
+  card:       '#1a1a24',
+  cardBorder: 'rgba(42,42,58,0.8)',
+  cardHover:  '#22222e',
+  text:       '#ffffff',
+  textSoft:   '#8888aa',
+  textMuted:  '#55556a',
+  accent:     '#ff4d2e',
+  accentGlow: 'rgba(255,77,46,0.12)',
+  accentBorder:'rgba(255,77,46,0.35)',
+  success:    '#2dd4bf',
+  radius:     12,
 }
 
 export default function RepurposePage() {
@@ -73,8 +58,10 @@ export default function RepurposePage() {
   const [bgType, setBgType] = useState('black')
   const [bgCustomColor, setBgCustomColor] = useState('#111827')
   const [blurOpacity, setBlurOpacity] = useState(0.5)
-  const [ratio, setRatio] = useState('original')
-  const [intensity, setIntensity] = useState('medium')
+  const [overlayMode, setOverlayMode] = useState('generated')
+  const [originalOverlay, setOriginalOverlay] = useState('')
+  const ratio = DEFAULT_RATIO
+  const intensity = DEFAULT_INTENSITY
 
   // ── WORKFLOW LOGIC ──
 
@@ -98,6 +85,8 @@ export default function RepurposePage() {
     fd.append('blur_opacity', String(blurOpacity))
     fd.append('output_ratio', ratio)
     fd.append('intensity', intensity)
+    fd.append('overlay_mode', overlayMode)
+    fd.append('original_overlay', originalOverlay.trim())
     
     try {
       // Calls V2 backend endpoint
@@ -158,13 +147,13 @@ export default function RepurposePage() {
   // - Purpose: Shows dynamic success checkmarks, instructions, and pulsing meters when upload successfully completes.
 
   if (phase === 'queued') return (
-    <div className="dk-content anim-fade-up" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '70vh' }}>
+    <div className="dk-content anim-fade-up mobile-page mobile-tool-page mobile-queued-page" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '70vh' }}>
       <div style={{ ...darkCard({ padding: 52, textAlign: 'center', maxWidth: 520, width: '100%' }) }}>
 
         {/* Pulsing circular checkmark banner */}
         <div style={{
           width: 84, height: 84, borderRadius: '50%', margin: '0 auto 28px',
-          background: 'rgba(92,225,230,0.12)', border: '1.5px solid rgba(92,225,230,0.32)',
+          background: 'rgba(45,212,191,0.12)', border: '1.5px solid rgba(45,212,191,0.32)',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
           animation: 'rp-pulse 2s ease-in-out infinite',
         }}>
@@ -212,8 +201,8 @@ export default function RepurposePage() {
       {/* inductions animation keyframes */}
       <style>{`
         @keyframes rp-pulse {
-          0%,100% { box-shadow: 0 0 0 0 rgba(92,225,230,.2); }
-          50%      { box-shadow: 0 0 0 16px rgba(92,225,230,0); }
+          0%,100% { box-shadow: 0 0 0 0 rgba(45,212,191,.2); }
+          50%      { box-shadow: 0 0 0 16px rgba(45,212,191,0); }
         }
         @keyframes rp-slide {
           0%   { transform: translateX(-130%); }
@@ -228,11 +217,11 @@ export default function RepurposePage() {
   // - Purpose: Shows files upload zone boxes, drag indicators, file format labels, and benefit highlight grids.
 
   if (phase === 'input') return (
-    <div className="dk-content anim-fade-up">
-      <div className="proj-page">
+    <div className="dk-content anim-fade-up mobile-page mobile-tool-page">
+      <div className="proj-page mobile-tool-inner">
 
         {/* Section title */}
-        <div className="proj-header">
+        <div className="proj-header mobile-page-hero">
           <div>
             <h1 className="proj-heading">Long to Short</h1>
             <p className="proj-subheading">Turn any video into viral short-form clips. Fire &amp; forget — no need to stay on the page.</p>
@@ -307,7 +296,7 @@ export default function RepurposePage() {
           <div style={{ ...darkCard({ padding: '14px 18px' }), display: 'flex', alignItems: 'flex-start', gap: 12 }}>
             <div style={{
               width: 36, height: 36, borderRadius: 8, flexShrink: 0,
-              background: 'rgba(92,225,230,0.12)', border: '1px solid rgba(92,225,230,0.28)',
+              background: 'rgba(45,212,191,0.12)', border: '1px solid rgba(45,212,191,0.28)',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
             }}>
               <span className="material-symbols-outlined" style={{ fontSize: 18, color: D.success, fontVariationSettings: "'FILL' 1" }}>cloud_done</span>
@@ -343,11 +332,11 @@ export default function RepurposePage() {
   // - Purpose: Customize layout and render variables. Shows file details, background builders, aspect toggles, intensity sliders.
 
   if (phase === 'settings') return (
-    <div className="dk-content anim-fade-up">
-      <div className="proj-page">
+    <div className="dk-content anim-fade-up mobile-page mobile-tool-page">
+      <div className="proj-page mobile-tool-inner">
 
         {/* Settings header titles */}
-        <div className="proj-header">
+        <div className="proj-header mobile-page-hero">
           <div>
             <h1 className="proj-heading">Configure Output</h1>
             <p className="proj-subheading">Choose your format, then hit Generate — you can leave the page immediately after.</p>
@@ -365,7 +354,7 @@ export default function RepurposePage() {
 
         {/* Selected file confirmation bar: Shows name, and file size dynamically calculated in MB. */}
         <div style={{
-          ...darkCard({ padding: '11px 18px', borderColor: 'rgba(92,225,230,0.28)', background: 'rgba(92,225,230,0.08)' }),
+          ...darkCard({ padding: '11px 18px', borderColor: 'rgba(45,212,191,0.28)', background: 'rgba(45,212,191,0.08)' }),
           display: 'flex', alignItems: 'center', gap: 12,
           marginBottom: 10
         }}>
@@ -401,15 +390,6 @@ export default function RepurposePage() {
           {/* 1. BACKGROUND SELECT BLOCK */}
           <div style={{ marginBottom: 28 }}>
             <div style={sectionLabel}>Canvas &amp; Background</div>
-            {ratio === 'original' && (
-              <div style={{
-                marginBottom: 12, padding: '10px 14px', borderRadius: 8,
-                background: 'rgba(255,255,255,0.03)', border: `1px solid ${D.cardBorder}`,
-                color: D.textSoft, fontSize: 12, lineHeight: 1.5,
-              }}>
-                Original keeps the smart-cropped visual exact. Pick any ratio below to apply canvas background and resizing.
-              </div>
-            )}
             
             {/* Background Style options loops */}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(132px, 1fr))', gap: 8 }}>
@@ -431,18 +411,26 @@ export default function RepurposePage() {
             {/* Custom color picker panel (Only visible when Custom background is checked) */}
             {bgType === 'custom' && (
               <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginTop: 12, padding: 14, borderRadius: 8, background: 'rgba(255,255,255,0.03)', border: `1px solid ${D.cardBorder}` }}>
-                {/* HTML Color Picker input */}
-                <input 
-                  type="color" 
-                  value={bgCustomColor} 
-                  onChange={e => setBgCustomColor(e.target.value)}
-                  aria-label="Canvas background color"
-                  style={{ width: 38, height: 38, border: 'none', background: 'transparent', cursor: 'pointer', padding: 0, flexShrink: 0 }} 
-                />
-                <div>
-                  <div style={{ fontSize: 13, fontWeight: 700, color: D.text }}>Canvas color</div>
-                  {/* Displays selected Hex Code */}
-                  <div style={{ fontSize: 11, color: D.textMuted, fontFamily: 'monospace' }}>{bgCustomColor.toUpperCase()}</div>
+                <div style={{ position: 'relative', width: 38, height: 38, flexShrink: 0 }}>
+                  <div style={{ width: 38, height: 38, borderRadius: 8, background: bgCustomColor, border: `1px solid ${D.cardBorder}`, cursor: 'pointer' }} onClick={() => document.getElementById('rp-color-input').click()} />
+                  <input
+                    id="rp-color-input"
+                    type="color"
+                    value={bgCustomColor}
+                    onChange={e => setBgCustomColor(e.target.value)}
+                    aria-label="Canvas background color"
+                    style={{ position: 'absolute', opacity: 0, width: 0, height: 0, pointerEvents: 'none' }}
+                  />
+                </div>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: D.text, marginBottom: 4 }}>Canvas color</div>
+                  <input
+                    type="text"
+                    value={bgCustomColor}
+                    onChange={e => { if (/^#[0-9a-fA-F]{0,6}$/.test(e.target.value)) setBgCustomColor(e.target.value) }}
+                    maxLength={7}
+                    style={{ fontSize: 12, fontFamily: 'monospace', color: D.textMuted, background: 'transparent', border: `1px solid ${D.cardBorder}`, borderRadius: 6, padding: '3px 8px', width: 90, outline: 'none' }}
+                  />
                 </div>
               </div>
             )}
@@ -468,34 +456,52 @@ export default function RepurposePage() {
             )}
           </div>
 
-          {/* 2. ASPECT RATIO presets selector block */}
+          {/* 2. OVERLAY TEXT MODE */}
           <div style={{ marginBottom: 28 }}>
-            <div style={sectionLabel}>Aspect Ratio</div>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(112px, 1fr))', gap: 8 }}>
-              {RATIOS.map(r => (
-                <button key={r.id} type="button" onClick={() => setRatio(r.id)} style={iconBtn(ratio === r.id)}>
-                  <span className="material-symbols-outlined" style={{ fontSize: 22, color: ratio === r.id ? D.accent : D.textSoft, display: 'block', marginBottom: 4 }}>{r.icon}</span>
-                  <div style={{ fontSize: 12, fontWeight: 700, color: D.text, overflowWrap: 'anywhere' }}>{r.name}</div>
-                  <div style={{ fontSize: 10, color: D.textMuted, marginTop: 2 }}>{r.desc}</div>
-                </button>
-              ))}
+            <div style={sectionLabel}>Default Overlay Text</div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8, marginBottom: 12 }}>
+              <button type="button" onClick={() => setOverlayMode('generated')} style={optBtn(overlayMode === 'generated')}>
+                <span className="material-symbols-outlined" style={{ fontSize: 16, fontVariationSettings: "'FILL' 1" }}>auto_awesome</span>
+                AI Generated
+              </button>
+              <button type="button" onClick={() => setOverlayMode('original')} style={optBtn(overlayMode === 'original')}>
+                <span className="material-symbols-outlined" style={{ fontSize: 16 }}>text_fields</span>
+                Original
+              </button>
+              <button type="button" onClick={() => setOverlayMode('exact')} style={optBtn(overlayMode === 'exact')}>
+                <span className="material-symbols-outlined" style={{ fontSize: 16 }}>content_copy</span>
+                Exact Overlay
+              </button>
             </div>
+            {(overlayMode === 'original' || overlayMode === 'exact') && (
+              <div style={{ padding: 14, borderRadius: 8, background: 'rgba(255,255,255,0.03)', border: `1px solid ${D.cardBorder}` }}>
+                <div style={{ fontSize: 12, color: D.textMuted, marginBottom: 8 }}>
+                  {overlayMode === 'exact'
+                    ? 'Type the exact text shown on the input video — no AI overlays will be generated, only this exact text is used.'
+                    : 'Type the original overlay text from the video'}
+                </div>
+                <textarea
+                  rows={2}
+                  value={originalOverlay}
+                  onChange={e => setOriginalOverlay(e.target.value)}
+                  placeholder="e.g. POV: you just realized…"
+                  style={{
+                    width: '100%', boxSizing: 'border-box', resize: 'none',
+                    background: D.card, border: `1px solid ${D.cardBorder}`, borderRadius: 8,
+                    color: D.text, fontSize: 13, padding: '10px 12px', outline: 'none',
+                    fontFamily: 'inherit', lineHeight: 1.5,
+                  }}
+                />
+              </div>
+            )}
+            {overlayMode === 'generated' && (
+              <div style={{ fontSize: 12, color: D.textMuted, padding: '8px 0' }}>
+                AI will pick the most relatable hook from the 20 generated overlays as default.
+              </div>
+            )}
           </div>
 
-          {/* 3. TRANSFORM INTENSITY switches */}
-          <div style={{ marginBottom: 24 }}>
-            <div style={sectionLabel}>Transform Intensity</div>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 8 }}>
-              {INTENSITIES.map(t => (
-                <button key={t.id} type="button" onClick={() => setIntensity(t.id)} style={iconBtn(intensity === t.id)}>
-                  <div style={{ fontSize: 14, fontWeight: 700, color: intensity === t.id ? D.accent : D.text, marginBottom: 4 }}>{t.label}</div>
-                  <div style={{ fontSize: 11, color: D.textMuted }}>{t.desc}</div>
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* 4. PRIMARY GENERATE CLIPS SUBMIT BUTTON */}
+          {/* 3. PRIMARY GENERATE CLIPS SUBMIT BUTTON */}
           <button
             type="button"
             onClick={startProcessing}
@@ -506,7 +512,7 @@ export default function RepurposePage() {
               fontSize: 15, fontWeight: 800, letterSpacing: 0,
               border: `1px solid ${D.accentBorder}`,
               background: submitting ? 'rgba(255,90,61,0.12)' : D.accent,
-              color: '#0b0d10',
+              color: '#0a0a0f',
               boxShadow: 'none',
               opacity: submitting ? 0.75 : 1,
               transition: 'all 0.2s',

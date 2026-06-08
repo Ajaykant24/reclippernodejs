@@ -125,22 +125,20 @@ function withExportPreviewDefaults(body) {
 }
 
 const app = express()
-const allowedOrigins = [
-  'http://localhost:5173',
-  'http://127.0.0.1:5173',
-  'http://localhost:5174',
-  'http://127.0.0.1:5174',
-  'http://localhost:3000',
-  'http://127.0.0.1:3000',
-  'https://clippar-black.vercel.app',
-  ...String(process.env.ALLOW_ORIGINS || process.env.CORS_ORIGINS || '')
-    .split(',')
-    .map(origin => origin.trim())
-    .filter(Boolean),
-]
 
 app.use(cors({
-  origin: allowedOrigins,
+  origin: [
+    'http://localhost:5173',
+    'http://127.0.0.1:5173',
+    'http://localhost:5174',
+    'http://127.0.0.1:5174',
+    'http://localhost:3000',
+    'http://127.0.0.1:3000',
+    ...String(process.env.CORS_ORIGINS || process.env.ALLOW_ORIGINS || '')
+      .split(',')
+      .map(origin => origin.trim())
+      .filter(Boolean),
+  ],
   credentials: true,
 }))
 app.use(express.json({ limit: '50mb' }))
@@ -148,7 +146,7 @@ app.use('/clips', express.static(CLIPS_DIR))
 app.use('/api/v2/repurpose', require('./repurpose_v2_router'))
 
 app.get('/', (req, res) => {
-  res.json({ status: 'ok', message: 'Backend is running' })
+  res.json({ status: 'ok', service: 'Reclipper API', version: '1.0.0' })
 })
 
 app.get('/health', (req, res) => {
@@ -268,13 +266,20 @@ app.post('/export/preview', asyncRoute(async (req, res) => {
 
   if (payload.bg_type === 'blur') {
     const sigma = payload.blur_strength != null
-      ? Math.max(1, Math.trunc((payload.blur_strength / 100.0) * 40.0))
+      ? Math.max(8, Math.trunc((payload.blur_strength / 100.0) * 60.0))
       : 16
     filterComplex += (
+      // Reproduce the editor preview's blur layer exactly:
+      //   object-fit: cover + transform: scale(1.18)  -> cover then zoom 18% and re-crop
+      //   filter: blur(...) brightness(0.84)           -> gblur + colorlevels (multiply by 0.84)
+      //   overlay: rgba(8,13,20,0.22)                  -> drawbox color=0x080d14@0.22
       `[0:v]scale=1080:1920:force_original_aspect_ratio=increase,`
       + `crop=1080:1920,`
+      + `scale=iw*1.18:-1,`
+      + `crop=1080:1920,`
       + `gblur=sigma=${sigma},`
-      + 'drawbox=x=0:y=0:w=iw:h=ih:color=black@0.22:t=fill[bg];'
+      + `colorlevels=romax=0.84:gomax=0.84:bomax=0.84,`
+      + 'drawbox=x=0:y=0:w=iw:h=ih:color=0x080d14@0.22:t=fill[bg];'
     )
   } else {
     let colorHex = '#0f1116'
@@ -304,7 +309,7 @@ app.post('/export/preview', asyncRoute(async (req, res) => {
   fx = Math.round(fx)
   fy = Math.round(fy)
 
-  filterComplex += `[0:v]scale=${fw}:${fh}[fg];`
+  filterComplex += `[0:v]scale=${fw}:${fh}:force_original_aspect_ratio=increase,crop=${fw}:${fh}[fg];`
   filterComplex += `[bg][fg]overlay=x=${fx}:y=${fy}:shortest=1[composite]`
 
   let tempPngPath = null

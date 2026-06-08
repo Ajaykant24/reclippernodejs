@@ -1,4 +1,4 @@
-const MODEL_NAME = 'gemini-2.0-flash'
+const MODEL_NAME = process.env.GEMINI_MODEL || 'gemini-2.5-flash'
 
 const REPURPOSE_PROMPT = `You are a master meme creator and social media strategist.
 Analyze the following transcript from a video and transform it into 1-3 brand-new, original-feeling meme-style short clips.

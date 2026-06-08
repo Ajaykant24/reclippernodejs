@@ -23,10 +23,10 @@ export default function ProfilePage() {
       PAGE BASE LAYER: Workspace layout wrapper.
       - Styled by .workspace-page (index.css).
     */
-    <div className="workspace-page">
+    <div className="workspace-page mobile-page mobile-profile-page">
       
       {/* HEADER HERO BAR: Account page title and logout button */}
-      <header className="workspace-hero">
+      <header className="workspace-hero mobile-page-hero">
         <div>
           <span className="eyebrow">Account</span>
           <h1>Workspace Profile</h1>
@@ -44,7 +44,7 @@ export default function ProfilePage() {
         PROFILE GRID: Displays account panels in columns on desktop.
         - Styled by .profile-grid and .premium-profile-grid in index.css.
       */}
-      <section className="profile-grid premium-profile-grid">
+      <section className="profile-grid premium-profile-grid mobile-card-stack">
         
         {/* 
           PANEL 1: User Identity Details.
