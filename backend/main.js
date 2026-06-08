@@ -346,7 +346,7 @@ app.post('/export/preview', asyncRoute(async (req, res) => {
   }
 
   args.push(
-    '-c:v', 'libx264', '-preset', 'fast', '-crf', '22',
+    '-c:v', 'libx264', '-preset', 'veryfast', '-crf', '22',
     '-c:a', 'aac', '-b:a', '128k',
     '-pix_fmt', 'yuv420p',
     '-movflags', '+faststart',

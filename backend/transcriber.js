@@ -17,7 +17,8 @@ async function transcribeVideo(videoPath) {
         'whisper',
         [
           videoPath,
-          '--model', 'base',
+          // tiny.en: fastest English model, low RAM — avoids OOM on small instances.
+          '--model', 'tiny.en',
           '--output_format', 'json',
           '--output_dir', tmpDir,
           '--language', 'en',
