@@ -134,6 +134,9 @@ app.use(cors({
     'http://127.0.0.1:5174',
     'http://localhost:3000',
     'http://127.0.0.1:3000',
+    // Any Vercel deployment (production + preview URLs) and the production domain.
+    /^https:\/\/[a-z0-9-]+\.vercel\.app$/i,
+    /^https:\/\/([a-z0-9-]+\.)?clippar\.online$/i,
     ...String(process.env.CORS_ORIGINS || process.env.ALLOW_ORIGINS || '')
       .split(',')
       .map(origin => origin.trim())
