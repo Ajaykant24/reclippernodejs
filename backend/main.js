@@ -260,7 +260,7 @@ app.post('/export/preview', asyncRoute(async (req, res) => {
   if (!sourceFilename) throw httpError(404, 'Clip not found in projects')
   const filePath = path.join(CLIPS_DIR, sourceFilename)
   if (!fs.existsSync(filePath) || !fs.statSync(filePath).isFile()) {
-    throw httpError(404, `Source clip file ${sourceFilename} not found`)
+    throw httpError(404, 'Clip file no longer on server — this happens when the server restarts without a persistent disk. Add a Render disk at /var/data and re-upload your video.')
   }
 
   const inputs = ['-i', filePath]
