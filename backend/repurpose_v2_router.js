@@ -16,7 +16,13 @@ const { runGeminiPipeline } = require('./repurpose_v2_ai')
 const { generateThumbnail } = require('./video_processor')
 
 const router = express.Router()
-const upload = multer({ storage: multer.memoryStorage() })
+const upload = multer({
+  storage: multer.diskStorage({
+    destination: os.tmpdir(),
+    filename: (req, file, cb) => cb(null, `upload_${Date.now()}_${file.fieldname}${path.extname(file.originalname) || '.mp4'}`),
+  }),
+  limits: { fileSize: 500 * 1024 * 1024 },
+})
 const JOBS = {}
 const BASE_DIR = __dirname
 const STORAGE_DIR = process.env.STORAGE_DIR || BASE_DIR
@@ -192,7 +198,7 @@ router.post('/', upload.fields([
     const videoId = String(req.body.video_id || '')
 
     if (video) {
-      fs.writeFileSync(videoPath, video.buffer)
+      fs.renameSync(video.path, videoPath)
     } else if (videoId) {
       const sourcePath = path.join(BASE_DIR, 'uploads', `${videoId}.mp4`)
       if (!fs.existsSync(sourcePath)) throw httpError(400, 'Provided video_id not found')
@@ -206,7 +212,7 @@ router.post('/', upload.fields([
     if (logo && logo.originalname) {
       const extension = path.extname(logo.originalname) || '.png'
       logoPath = path.join(workDir, `logo${extension}`)
-      fs.writeFileSync(logoPath, logo.buffer)
+      fs.renameSync(logo.path, logoPath)
     }
 
     const backgroundType = String(req.body.background_type || 'black')
