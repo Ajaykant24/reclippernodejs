@@ -456,49 +456,32 @@ export default function RepurposePage() {
             )}
           </div>
 
-          {/* 2. OVERLAY TEXT MODE */}
+          {/* 2. OVERLAY TEXT */}
           <div style={{ marginBottom: 28 }}>
-            <div style={sectionLabel}>Default Overlay Text</div>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8, marginBottom: 12 }}>
-              <button type="button" onClick={() => setOverlayMode('generated')} style={optBtn(overlayMode === 'generated')}>
-                <span className="material-symbols-outlined" style={{ fontSize: 16, fontVariationSettings: "'FILL' 1" }}>auto_awesome</span>
-                AI Generated
-              </button>
-              <button type="button" onClick={() => setOverlayMode('original')} style={optBtn(overlayMode === 'original')}>
-                <span className="material-symbols-outlined" style={{ fontSize: 16 }}>text_fields</span>
-                Original
-              </button>
-              <button type="button" onClick={() => setOverlayMode('exact')} style={optBtn(overlayMode === 'exact')}>
-                <span className="material-symbols-outlined" style={{ fontSize: 16 }}>content_copy</span>
-                Exact Overlay
-              </button>
+            <div style={sectionLabel}>
+              Custom Overlay Text
+              <span style={{ fontWeight: 400, opacity: 0.5, marginLeft: 6 }}>(optional)</span>
             </div>
-            {(overlayMode === 'original' || overlayMode === 'exact') && (
-              <div style={{ padding: 14, borderRadius: 8, background: 'rgba(255,255,255,0.03)', border: `1px solid ${D.cardBorder}` }}>
-                <div style={{ fontSize: 12, color: D.textMuted, marginBottom: 8 }}>
-                  {overlayMode === 'exact'
-                    ? 'Type the exact text shown on the input video — no AI overlays will be generated, only this exact text is used.'
-                    : 'Type the original overlay text from the video'}
-                </div>
-                <textarea
-                  rows={2}
-                  value={originalOverlay}
-                  onChange={e => setOriginalOverlay(e.target.value)}
-                  placeholder="e.g. POV: you just realized…"
-                  style={{
-                    width: '100%', boxSizing: 'border-box', resize: 'none',
-                    background: D.card, border: `1px solid ${D.cardBorder}`, borderRadius: 8,
-                    color: D.text, fontSize: 13, padding: '10px 12px', outline: 'none',
-                    fontFamily: 'inherit', lineHeight: 1.5,
-                  }}
-                />
-              </div>
-            )}
-            {overlayMode === 'generated' && (
-              <div style={{ fontSize: 12, color: D.textMuted, padding: '8px 0' }}>
-                AI will pick the most relatable hook from the 20 generated overlays as default.
-              </div>
-            )}
+            <textarea
+              rows={2}
+              value={originalOverlay}
+              onChange={e => {
+                setOriginalOverlay(e.target.value)
+                setOverlayMode(e.target.value.trim() ? 'original' : 'generated')
+              }}
+              placeholder="Leave blank for AI-generated overlays (recommended)"
+              style={{
+                width: '100%', boxSizing: 'border-box', resize: 'none',
+                background: D.card, border: `1px solid ${D.cardBorder}`, borderRadius: 8,
+                color: D.text, fontSize: 13, padding: '10px 12px', outline: 'none',
+                fontFamily: 'inherit', lineHeight: 1.5,
+              }}
+            />
+            <div style={{ fontSize: 12, color: D.textMuted, paddingTop: 6 }}>
+              {originalOverlay.trim()
+                ? 'Your text will be applied to the video. AI overlays are also available in the editor.'
+                : 'AI will pick the most relatable hook from the generated overlays as default.'}
+            </div>
           </div>
 
           {/* 3. PRIMARY GENERATE CLIPS SUBMIT BUTTON */}

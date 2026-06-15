@@ -1126,7 +1126,7 @@ textarea.glass-input {
 
 .editor-preview-pane {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: center;
   padding: 20px;
   overflow: auto;
@@ -1796,6 +1796,18 @@ textarea.glass-input {
   .repurpose-project-grid,
   .project-subsection-grid {
     grid-template-columns: 1fr;
+  }
+
+  /* Search bar full width on mobile */
+  .proj-search-wrap {
+    min-width: 0;
+    width: 100%;
+  }
+
+  /* Repurpose upload page */
+  .repurpose-drop-zone {
+    min-height: 160px;
+    padding: 24px 16px;
   }
 
   /* Pricing */

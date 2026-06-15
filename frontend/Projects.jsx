@@ -798,7 +798,10 @@ export default function ProjectsPage() {
   const loadProjects = useCallback(async () => {
     try {
       const response = await api.get('/projects/library')
-      setProjects(response.data?.projects || [])
+      const serverProjects = response.data?.projects || []
+      // Never overwrite a non-empty local list with an empty server response —
+      // empty could mean a disk/storage hiccup, not that the user has no clips.
+      setProjects(prev => serverProjects.length > 0 ? serverProjects : prev)
     } catch {
       // silent fail
     } finally {
