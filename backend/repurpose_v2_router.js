@@ -174,6 +174,7 @@ async function runPipeline(
   } catch (error) {
     update(jobId, { status: 'failed', error: error.message })
     console.error(`[repurpose_v2] Pipeline error for ${jobId}:`, error)
+    try { fs.rmSync(workDir, { recursive: true, force: true }) } catch {}
   }
 }
 
@@ -241,7 +242,11 @@ router.post('/', upload.fields([
         user.user_id,
         overlayMode,
         originalOverlay,
-      )
+      ).catch(error => {
+        update(jobId, { status: 'failed', error: error.message || 'Unexpected error' })
+        console.error(`[repurpose_v2] Unhandled error for ${jobId}:`, error)
+        try { fs.rmSync(workDir, { recursive: true, force: true }) } catch {}
+      })
     })
 
     res.json({ job_id: jobId })

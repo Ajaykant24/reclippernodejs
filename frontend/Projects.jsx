@@ -672,6 +672,7 @@ function RepurposeProjectCard({ project, onEdit, onDelete, selectable = false, s
                 preload="metadata"
                 onLoadedData={() => setVideoReady(true)}
                 onCanPlay={() => setVideoReady(true)}
+                onError={() => setVideoReady(true)}
                 onMouseEnter={event => {
                   event.currentTarget.play().catch(() => {})
                   const bg = blurBgRef.current
