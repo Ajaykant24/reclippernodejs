@@ -382,6 +382,23 @@ app.use((error, req, res, next) => {
 })
 
 if (require.main === module) {
+  // On every startup, mark any jobs that were mid-pipeline as failed.
+  // This handles Render restarts, OOM kills, and cold starts — so the
+  // frontend never gets stuck polling a job that can't complete.
+  const staleStatuses = new Set(['queued', 'probing', 'smart_cropping', 'composing_canvas', 'generating_ai', 'finalizing'])
+  const persistedJobs = readJson(JOBS_FILE, {})
+  let staleFound = false
+  for (const [jobId, job] of Object.entries(persistedJobs)) {
+    if (staleStatuses.has(job.status)) {
+      persistedJobs[jobId] = { ...job, status: 'failed', error: 'Server restarted while processing. Please re-upload your video.' }
+      staleFound = true
+    }
+  }
+  if (staleFound) {
+    writeJson(JOBS_FILE, persistedJobs)
+    console.log('[startup] Marked stale in-progress jobs as failed')
+  }
+
   const port = Number(process.env.PORT || 8000)
   app.listen(port, '0.0.0.0', () => {
     console.log(`Reclipper API listening on port ${port}`)

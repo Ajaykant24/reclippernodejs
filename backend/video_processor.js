@@ -17,7 +17,7 @@ function generateThumbnail(videoPath, clipId) {
       '-frames:v', '1',
       '-q:v', '2',
       thumbPath,
-    ], { maxBuffer: 16 * 1024 * 1024 }, (error, stdout, stderr) => {
+    ], { maxBuffer: 16 * 1024 * 1024, timeout: 30000 }, (error, stdout, stderr) => {
       if (error) {
         reject(new Error(stderr || 'Thumbnail generation failed'))
         return
