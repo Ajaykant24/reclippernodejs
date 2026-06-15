@@ -1,0 +1,45 @@
+# Reclipper backend stack for a single always-on server (Oracle Cloud Free, Hetzner, any VPS).
+# Runs the API plus a Caddy reverse proxy that issues + renews HTTPS certs automatically.
+#
+#   1. Copy deploy.env.example to deploy.env and fill in your values
+#   2. docker compose --env-file deploy.env up -d --build
+#
+# Data (user accounts, projects, generated clips) lives in the named volume
+# "reclipper-data" and survives restarts, rebuilds, and reboots.
+
+services:
+  api:
+    build:
+      context: ./backend
+    restart: unless-stopped
+    environment:
+      - PORT=8000
+      - NODE_ENV=production
+      - STORAGE_DIR=/var/data
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - GEMINI_MODEL=${GEMINI_MODEL:-gemini-2.0-flash}
+      - CORS_ORIGINS=${CORS_ORIGINS}
+    volumes:
+      - reclipper-data:/var/data
+    expose:
+      - "8000"
+
+  caddy:
+    image: caddy:2
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      - API_DOMAIN=${API_DOMAIN}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile
+      - caddy-data:/data
+      - caddy-config:/config
+    depends_on:
+      - api
+
+volumes:
+  reclipper-data:
+  caddy-data:
+  caddy-config:
