@@ -73,6 +73,8 @@ function escapeDrawtext(text) {
 function resolveFont() {
   const windir = process.env.WINDIR || 'C:\\Windows'
   const candidates = [
+    process.env.SF_FONT_PATH || '',
+    path.join(__dirname, 'fonts', 'SFProText-Regular.ttf'),
     path.join(windir, 'Fonts', 'arialbd.ttf'),
     path.join(windir, 'Fonts', 'segoeuib.ttf'),
     path.join(windir, 'Fonts', 'arial.ttf'),

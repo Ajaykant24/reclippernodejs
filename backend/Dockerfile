@@ -14,6 +14,7 @@ COPY . .
 
 ENV NODE_ENV=production
 ENV PORT=8000
+ENV SF_FONT_PATH=/app/fonts/SFProText-Regular.ttf
 EXPOSE 8000
 
 CMD ["npm", "start"]

@@ -18,6 +18,7 @@ function resolveFont() {
   const localAppData = process.env.LOCALAPPDATA || ''
   const candidates = [
     process.env.SF_FONT_PATH || '',
+    path.join(__dirname, 'fonts', 'SFProText-Regular.ttf'),
     path.join(windir, 'Fonts', 'SF-Pro-Text-Regular.otf'),
     path.join(windir, 'Fonts', 'SF-Pro-Display-Regular.otf'),
     path.join(localAppData, 'Microsoft', 'Windows', 'Fonts', 'SF-Pro-Text-Regular.otf'),
