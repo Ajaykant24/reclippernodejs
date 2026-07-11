@@ -16,6 +16,23 @@ import RepurposePage from './Repurpose.jsx'
 import SignInPage from './SignIn.jsx'
 import SignUpPage from './SignUp.jsx'
 
+// AUTH CHECK: A user is "logged in" only if a real session token is stored.
+// (The API client falls back to a shared 'local-user' string, which must NOT count as logged in.)
+function isAuthenticated() {
+  const token = (localStorage.getItem('token') || '').trim()
+  return token !== '' && token !== 'local-user'
+}
+
+// ROUTE GUARD: Wraps workspace pages so logged-out visitors are sent to sign up
+// (create account first) instead of walking straight into the tool.
+function RequireAuth({ children }) {
+  const location = useLocation()
+  if (!isAuthenticated()) {
+    return <Navigate to="/signup" replace state={{ from: location.pathname }} />
+  }
+  return children
+}
+
 const workspaceNavItems = [
   { to: '/dashboard', icon: 'space_dashboard', label: 'Home' },
   { to: '/tool', icon: 'auto_awesome', label: 'Create' },
@@ -146,21 +163,23 @@ function Shell() {
           <Route path="/signin" element={<SignInPage />} />
           <Route path="/signup" element={<SignUpPage />} />
           
-          {/* WORKSPACE VIEWS */}
-          <Route path="/dashboard" element={<DashboardPage />} />
-          <Route path="/tool" element={<RepurposePage />} />
+          {/* PUBLIC MARKETING PAGE */}
           <Route path="/pricing" element={<PricingPage />} />
-          <Route path="/export" element={<ExportPage />} />
-          <Route path="/profile" element={<ProfilePage />} />
-          <Route path="/repurpose" element={<RepurposePage />} />
-          <Route path="/projects" element={<ProjectsPage />} />
-          
+
+          {/* WORKSPACE VIEWS — require a logged-in account */}
+          <Route path="/dashboard" element={<RequireAuth><DashboardPage /></RequireAuth>} />
+          <Route path="/tool" element={<RequireAuth><RepurposePage /></RequireAuth>} />
+          <Route path="/export" element={<RequireAuth><ExportPage /></RequireAuth>} />
+          <Route path="/profile" element={<RequireAuth><ProfilePage /></RequireAuth>} />
+          <Route path="/repurpose" element={<RequireAuth><RepurposePage /></RequireAuth>} />
+          <Route path="/projects" element={<RequireAuth><ProjectsPage /></RequireAuth>} />
+
           {/* DYNAMIC EDITOR URL ROUTES: Matches specific clip and project IDs. */}
-          <Route path="/editor/:clipId" element={<Editor />} />
-          <Route path="/editor/:projectId/:clipId" element={<Editor />} />
-          
+          <Route path="/editor/:clipId" element={<RequireAuth><Editor /></RequireAuth>} />
+          <Route path="/editor/:projectId/:clipId" element={<RequireAuth><Editor /></RequireAuth>} />
+
           {/* BACKWARDS-COMPATIBILITY REDIRECTS: Maps legacy routes back to the main generator. */}
-          <Route path="/studio" element={<RepurposePage />} />
+          <Route path="/studio" element={<RequireAuth><RepurposePage /></RequireAuth>} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </main>

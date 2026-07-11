@@ -48,10 +48,10 @@ export default function HomePage() {
           
           {/* CTA ACTION BUTTONS: Link to registration or direct tool launch. */}
           <div className="hero-actions">
-            {/* White solid button (starts signup) */}
+            {/* White solid button (new users -> create account) */}
             <Link className="btn btn-solid-white btn-lg" to="/signup">Build My Workspace</Link>
-            {/* Transparent glass button (opens editor tool directly) */}
-            <Link className="btn btn-glass btn-lg" to="/tool">Open Tool</Link>
+            {/* Transparent glass button (returning users -> sign in) */}
+            <Link className="btn btn-glass btn-lg" to="/signin">Sign In</Link>
           </div>
         </div>
 
