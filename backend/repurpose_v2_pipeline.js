@@ -346,8 +346,8 @@ async function detectAndCrop(inputPath, outputPath, probe) {
     const result = await run([
       '-i', inputPath,
       '-vf', `crop=${cropW}:${cropH}:${cropX}:${cropY}`,
-      '-c:v', 'libx264', '-preset', 'veryfast', '-crf', '18',
-      '-c:a', 'aac', '-b:a', '128k',
+      '-c:v', 'libx264', '-preset', 'medium', '-crf', '16',
+      '-c:a', 'aac', '-b:a', '160k',
       '-movflags', '+faststart',
       outputPath,
     ], 'detect_and_crop')
@@ -381,8 +381,8 @@ async function composeCanvas(
       '-i', croppedPath,
       '-filter_complex', filterComplex,
       '-map', '[out]', '-map', '0:a?',
-      '-c:v', 'libx264', '-preset', 'veryfast', '-crf', '18',
-      '-c:a', 'aac', '-b:a', '128k',
+      '-c:v', 'libx264', '-preset', 'medium', '-crf', '16',
+      '-c:a', 'aac', '-b:a', '160k',
       '-pix_fmt', 'yuv420p',
       '-movflags', '+faststart',
       outputPath,
@@ -413,8 +413,8 @@ async function composeCanvas(
       '-i', croppedPath,
       '-filter_complex', `${bgChain};${fgChain};[bg][fg]overlay=(W-w)/2:(H-h)/2[out]`,
       '-map', '[out]', '-map', '0:a?',
-      '-c:v', 'libx264', '-preset', 'veryfast', '-crf', '18',
-      '-c:a', 'aac', '-b:a', '128k',
+      '-c:v', 'libx264', '-preset', 'medium', '-crf', '16',
+      '-c:a', 'aac', '-b:a', '160k',
       '-pix_fmt', 'yuv420p',
       '-movflags', '+faststart',
       outputPath,
@@ -503,8 +503,8 @@ async function renderOverlayText(canvasPath, outputPath, overlayText, canvasW, c
     '-filter_complex', filterParts.join(';'),
     '-map', current,
     '-map', '0:a?',
-    '-c:v', 'libx264', '-preset', 'veryfast', '-crf', '18',
-    '-c:a', 'aac', '-b:a', '128k',
+    '-c:v', 'libx264', '-preset', 'medium', '-crf', '16',
+    '-c:a', 'aac', '-b:a', '160k',
     '-pix_fmt', 'yuv420p',
     '-movflags', '+faststart',
     outputPath,
@@ -520,8 +520,8 @@ async function applyLogo(videoPath, logoPath, outputPath, canvasW, canvasH) {
     '-filter_complex', `[1:v]scale=${logoSize}:-1[logo];[0:v][logo]overlay=W-w-${padding}:${padding}[out]`,
     '-map', '[out]',
     '-map', '0:a?',
-    '-c:v', 'libx264', '-preset', 'veryfast', '-crf', '18',
-    '-c:a', 'aac', '-b:a', '128k',
+    '-c:v', 'libx264', '-preset', 'medium', '-crf', '16',
+    '-c:a', 'aac', '-b:a', '160k',
     '-pix_fmt', 'yuv420p',
     '-movflags', '+faststart',
     outputPath,
@@ -529,23 +529,25 @@ async function applyLogo(videoPath, logoPath, outputPath, canvasW, canvasH) {
 }
 
 async function freshenVideo(inputPath, outputPath) {
+  // Makes each export slightly unique (so re-uploads aren't flagged as duplicate)
+  // WITHOUT degrading visible quality. We keep only imperceptible tweaks:
+  // a tiny speed change, a subtle color/hue shift, stripped metadata, and a
+  // gentle sharpen. The old noise + 4% zoom-crop passes were removed because
+  // they blurred the frame and softened the burned-in text.
   const vf = [
-    'setpts=0.98*PTS',
-    'scale=iw*1.04:ih*1.04',
-    'crop=iw/1.04:ih/1.04',
-    'eq=brightness=0.03:contrast=1.03:saturation=1.05',
-    'hue=h=3',
-    'noise=alls=3:allf=t+u',
-    'unsharp=3:3:0.5',
+    'setpts=0.985*PTS',
+    'eq=brightness=0.015:contrast=1.02:saturation=1.03',
+    'hue=h=2',
+    'unsharp=3:3:0.4',
   ].join(',')
-  const af = 'atempo=1.02,asetrate=44100*0.99,aresample=44100'
+  const af = 'atempo=1.015,asetrate=44100*0.995,aresample=44100'
   return run([
     '-i', inputPath,
     '-vf', vf,
     '-af', af,
-    '-c:v', 'libx264', '-preset', 'veryfast', '-crf', '20',
+    '-c:v', 'libx264', '-preset', 'medium', '-crf', '16',
     '-g', '48',
-    '-c:a', 'aac', '-b:a', '128k',
+    '-c:a', 'aac', '-b:a', '160k',
     '-pix_fmt', 'yuv420p',
     '-map_metadata', '-1',
     '-movflags', '+faststart',

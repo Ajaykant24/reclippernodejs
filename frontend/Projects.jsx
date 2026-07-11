@@ -18,10 +18,15 @@ const STAGE_H = 720             // Height of the mobile preview simulator stage
 const EXPORT_H = 1920           // Standard high-def vertical video height
 const EXPORT_SCALE = EXPORT_H / STAGE_H // Scaler multiplier (~2.66x) to upscale coordinates for FFmpeg exports
 const DEFAULT_CROP_RATIO = 'original'
-const PREVIEW_VERTICAL_SHIFT = 39 // Vertical adjustment pixels to position the video inside the frame
-const TEXT_LINE_LIMIT = 32      // Maximum letters allowed on a single text line before splitting
-const TEXT_MAX_LINES = 3        // Maximum text line rows allowed for the top hook card overlay
-const TEXT_VIDEO_GAP = 14       // Distance in pixels between the text overlay box and the video card
+// ── These constants MUST match frontend/editor.jsx so the card preview and the
+//    editor preview lay out overlay text identically. ──
+const PREVIEW_VERTICAL_SHIFT = 39     // Vertical adjustment pixels to position the video inside the frame
+const EXACT_CROP_VERTICAL_SHIFT = 34  // Vertical shift used for the "Exact" (original) ratio
+const VIDEO_SIDE_MARGIN_RATIO = 0.05  // Left/right margin the video box keeps inside the stage
+const TEXT_VIDEO_GAP = 14             // Distance in pixels between the text overlay box and the video card
+const OVERLAY_FONT_SIZE = 20          // Editor default font size (renderedFontSize) for overlay text
+const OVERLAY_TEXT_WIDTH_PERCENT = 92 // Editor default text width as a % of the video width
+const EXACT_CROP_RATIO = 'Exact'      // Sentinel label for the source/original aspect ratio
 
 // HELPER: Keeps any number strictly locked between a minimum and maximum value
 const clamp = (value, min, max) => Math.max(min, Math.min(max, value))
@@ -49,34 +54,78 @@ function formatDate(iso) {
   return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
 }
 
-function wrapOverlayText(value) {
-  // Purpose: Splits long overlay hook sentences into clean, balanced multi-line paragraphs (up to 3 lines).
-  const words = String(value || '').replace(/\s+/g, ' ').trim().split(' ').filter(Boolean)
-  if (!words.length) return []
-  const lines = []
-  let currentLine = ''
+// HELPER: Cleans overlay text exactly like the editor (frontend/editor.jsx cleanOverlayText).
+// Strips straight/curly quotes, collapses whitespace, and capitalizes the first letter so the
+// card never shows the raw AI hook with leftover quotes/spacing.
+function cleanOverlayText(value) {
+  const cleaned = String(value || '')
+    .replace(/["“”]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+  if (!cleaned) return ''
+  return cleaned.charAt(0).toUpperCase() + cleaned.slice(1)
+}
 
-  for (let index = 0; index < words.length; index += 1) {
-    const word = words[index]
-    currentLine = currentLine ? `${currentLine} ${word}` : word
-    if (lines.length === TEXT_MAX_LINES - 1) {
-      // Reached the last allowed line, dump all remaining words together
-      const remainder = [currentLine, ...words.slice(index + 1)].filter(Boolean).join(' ')
-      if (remainder) lines.push(remainder)
-      return lines
-    }
-    if (currentLine.length >= TEXT_LINE_LIMIT) {
-      lines.push(currentLine)
-      currentLine = ''
-    }
+function getOverlayMeasureContext() {
+  if (typeof document === 'undefined') return null
+  const canvas = document.createElement('canvas')
+  return canvas.getContext('2d')
+}
+
+// HELPER: Pixel-accurate line wrapping — identical logic to the editor's wrapText so the card
+// breaks lines at the same place the editor preview does (instead of a naive character count).
+function wrapText(value, maxWidth = 260, fontSize = OVERLAY_FONT_SIZE) {
+  const text = cleanOverlayText(value)
+  const words = text.split(' ').filter(Boolean)
+  if (!words.length) return []
+
+  const ctx = getOverlayMeasureContext()
+  const safeMaxWidth = Math.max(80, Number(maxWidth) || 260)
+  const safeFontSize = clamp(Number(fontSize) || OVERLAY_FONT_SIZE, 14, 64)
+  const font = `400 ${safeFontSize}px -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", "Segoe UI", "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif`
+  if (ctx) ctx.font = font
+
+  const measure = line => {
+    if (ctx) return ctx.measureText(line).width
+    return line.length * safeFontSize * 0.52
   }
 
-  if (currentLine) lines.push(currentLine)
+  const lines = []
+  let line = ''
+  words.forEach(word => {
+    const testLine = line ? `${line} ${word}` : word
+    if (measure(testLine) <= safeMaxWidth) {
+      line = testLine
+      return
+    }
+    if (line) {
+      lines.push(line)
+      line = ''
+    }
+    if (measure(word) <= safeMaxWidth) {
+      line = word
+      return
+    }
+    // Very long single words are split only as a safety fallback.
+    let chunk = ''
+    Array.from(word).forEach(char => {
+      const testChunk = `${chunk}${char}`
+      if (measure(testChunk) <= safeMaxWidth) {
+        chunk = testChunk
+      } else {
+        if (chunk) lines.push(chunk)
+        chunk = char
+      }
+    })
+    line = chunk
+  })
+  if (line) lines.push(line)
   return lines
 }
 
-// ASPECT RATIO SPECIFICATIONS DATABASE
+// ASPECT RATIO SPECIFICATIONS DATABASE (matches editor.jsx RATIOS)
 const RATIO_DIMS = {
+  '3:2': [3, 2],
   '9:16': [9, 16],
   '2:3': [2, 3],
   '3:4': [3, 4],
@@ -84,55 +133,95 @@ const RATIO_DIMS = {
   '1:1': [1, 1],
   '4:5': [4, 5],
   '4:3': [4, 3],
-  '3:2': [3, 2],
   '21:9': [21, 9],
 }
 
-function getClipRatio(clip) {
-  // Evaluates aspect ratio settings for a clip (defaults to 'original' source format)
-  const raw = String(clip?.output_ratio || clip?.crop_ratio || '').trim()
-  if (raw && raw !== 'original' && RATIO_DIMS[raw]) return raw
-  return 'original'
+// Normalizes a raw ratio value to an editor-style label ('Exact', '9:16', …) or '' if unknown.
+function normalizeRatio(value) {
+  const raw = String(value || '').trim()
+  if (!raw) return ''
+  if (raw.toLowerCase() === 'original' || raw.toLowerCase() === 'exact') return EXACT_CROP_RATIO
+  return RATIO_DIMS[raw] ? raw : ''
 }
 
-function getPreviewBox(clip) {
-  // Purpose: Math calculator that scales the video box to sit neatly in the center of the mobile frame
-  const ratio = getClipRatio(clip)
-  const [rw, rh] = RATIO_DIMS[ratio] || [
-    Number(clip?.canvas_w || clip?.crop_w || clip?.source_w || 9),
-    Number(clip?.canvas_h || clip?.crop_h || clip?.source_h || 16),
+// Mirrors editor.jsx inferClipRatio: figures out which aspect ratio a clip was exported with.
+function inferClipRatio(clip) {
+  const candidates = [
+    clip?.crop_ratio,
+    clip?.cropRatio,
+    clip?.output_ratio,
+    clip?.outputRatio,
+    clip?.editor_payload?.crop_ratio,
+    clip?.editor_payload?.cropRatio,
+    clip?.editor_payload?.output_ratio,
+    clip?.editor_payload?.outputRatio,
   ]
-  const scale = ratio === '9:16'
-    ? Math.min(STAGE_W / rw, STAGE_H / rh)
-    : Math.min((STAGE_W * 0.9) / rw, (STAGE_H * 0.78) / rh)
-  const w = rw * scale
-  const h = rh * scale
+  for (const candidate of candidates) {
+    const ratio = normalizeRatio(candidate)
+    if (ratio) return ratio
+  }
+  return EXACT_CROP_RATIO
+}
+
+// Used by the direct-download call — maps the inferred ratio back to the backend's expectation.
+function getClipRatio(clip) {
+  const ratio = inferClipRatio(clip)
+  return ratio === EXACT_CROP_RATIO ? 'original' : ratio
+}
+
+function getExactCropRatio(clip) {
+  const width = Number(clip?.canvas_w || clip?.crop_w || clip?.source_w || 0)
+  const height = Number(clip?.canvas_h || clip?.crop_h || clip?.source_h || 0)
+  if (width > 0 && height > 0) return { w: width, h: height }
+  return { w: 3, h: 2 }
+}
+
+// Mirrors editor.jsx getPreviewBox: the video box keeps a fixed side margin and is vertically
+// centered with a small shift, so the card and the editor place the video identically.
+function getPreviewBox(clip) {
+  const label = inferClipRatio(clip)
+  const sourceRatio = label === EXACT_CROP_RATIO
+    ? getExactCropRatio(clip)
+    : (() => { const [w, h] = RATIO_DIMS[label] || [9, 16]; return { w, h } })()
+  const verticalShift = label === EXACT_CROP_RATIO ? EXACT_CROP_VERTICAL_SHIFT : PREVIEW_VERTICAL_SHIFT
+  const w = STAGE_W * (1 - VIDEO_SIDE_MARGIN_RATIO * 2)
+  const h = w * (sourceRatio.h / sourceRatio.w)
   return {
-    l: (STAGE_W - w) / 2,
-    t: (STAGE_H - h) / 2 + PREVIEW_VERTICAL_SHIFT,
+    l: STAGE_W * VIDEO_SIDE_MARGIN_RATIO,
+    t: (STAGE_H - h) / 2 + verticalShift,
     w,
     h,
   }
 }
 
 function buildRepurposePreview(clip) {
-  // Purpose: Packages all visual layout metrics (dimensions, font scales, box sizes) for the 9:16 video cards.
-  const text = clip?.overlay_texts?.[0] || clip?.hook || ''
+  // Purpose: Packages the overlay layout using the SAME math as the editor's default (un-dragged)
+  // view, so the card preview matches editor.jsx exactly: cleaned text, pixel-accurate wrapping,
+  // fixed font size, and text anchored just above the video box.
+  const rawText = clip?.editor_payload?.custom_text
+    ?? clip?.custom_text
+    ?? clip?.overlay_texts?.[0]
+    ?? clip?.hook
+    ?? ''
+  const text = cleanOverlayText(rawText)
   const videoBox = getPreviewBox(clip)
-  const lines = wrapOverlayText(text)
-  const fontSize = 42
-  const maxLineChars = Math.max(...lines.map(line => line.length), 1)
-  const textSideMargin = clamp(videoBox.w * 0.1, 22, 44)
-  const textW = Math.max(90, videoBox.w - textSideMargin * 2)
-  const overflowSafeSize = Math.floor(textW / (maxLineChars * 0.46))
-  // Never shrink below the actual export's text size (~STAGE_W * 0.055 ≈ 22px in stage units),
-  // so the card preview and its direct download match the real overlay size instead of looking smaller.
-  const renderedFontSize = clamp(Math.min(fontSize, overflowSafeSize || fontSize), 22, fontSize)
-  const lineH = renderedFontSize * 1.32
-  const textH = lines.length * lineH
+
+  const renderedFontSize = clamp(OVERLAY_FONT_SIZE, 14, 64)
+  const textWidthRatio = clamp(OVERLAY_TEXT_WIDTH_PERCENT, 55, 96) / 100
+  const textW = clamp(videoBox.w * textWidthRatio, 90, Math.max(90, videoBox.w - 8))
+  const lines = wrapText(text, textW, renderedFontSize)
+
+  const lineH = renderedFontSize * 1.25
+  const lineGap = Math.round(renderedFontSize * 0.18)
+  const textH = lines.length
+    ? lines.length * lineH + Math.max(0, lines.length - 1) * lineGap
+    : lineH
+
+  const defaultTextX = videoBox.l + videoBox.w / 2 - textW / 2
+  const defaultTextY = videoBox.t - TEXT_VIDEO_GAP - textH
   const textBox = {
-    x: videoBox.l + videoBox.w / 2 - textW / 2,
-    y: clamp(videoBox.t - TEXT_VIDEO_GAP - textH, 12, STAGE_H - textH - 12),
+    x: clamp(defaultTextX, 12, STAGE_W - textW - 12),
+    y: clamp(defaultTextY, 12, STAGE_H - textH - 12),
     w: textW,
   }
 
