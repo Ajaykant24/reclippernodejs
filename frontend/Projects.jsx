@@ -25,7 +25,7 @@ const EXACT_CROP_VERTICAL_SHIFT = 34  // Vertical shift used for the "Exact" (or
 const VIDEO_SIDE_MARGIN_RATIO = 0.05  // Left/right margin the video box keeps inside the stage
 const TEXT_VIDEO_GAP = 14             // Distance in pixels between the text overlay box and the video card
 const OVERLAY_FONT_SIZE = 20          // Editor default font size (renderedFontSize) for overlay text
-const OVERLAY_TEXT_WIDTH_PERCENT = 92 // Editor default text width as a % of the video width
+const OVERLAY_TEXT_WIDTH_PERCENT = 96 // Editor default text width as a % of the video width
 const EXACT_CROP_RATIO = 'Exact'      // Sentinel label for the source/original aspect ratio
 
 // HELPER: Keeps any number strictly locked between a minimum and maximum value

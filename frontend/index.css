@@ -1855,11 +1855,13 @@ textarea.glass-input {
     overflow: hidden;
   }
 
+  /* Fixed-size video preview pinned at the top; never taller than ~46% of the
+     screen so the editing controls below always have room and stay scrollable. */
   .editor-preview-pane {
     padding: 4px 8px 2px;
     overflow: hidden;
     flex-shrink: 0;
-    flex-shrink: 0;
+    max-height: 46vh;
   }
 
   .editor-control-pane {
@@ -1867,7 +1869,9 @@ textarea.glass-input {
     border-top: 1px solid var(--border);
     max-height: none;
     height: 100%;
+    min-height: 0;
     overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
   }
 
   /* Hide the drag handle and toggle — not needed in fixed layout */

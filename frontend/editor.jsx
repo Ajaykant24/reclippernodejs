@@ -421,7 +421,7 @@ export default function Editor() {
   const [textStyle, setTextStyle] = useState('plain')
   const [textColor, setTextColor] = useState('#ffffff')
   const [fontSize, setFontSize] = useState(20)
-  const [textWidthPercent, setTextWidthPercent] = useState(92)
+  const [textWidthPercent, setTextWidthPercent] = useState(96)
   const [textOffsetX, setTextOffsetX] = useState(0)
   const [textOffsetY, setTextOffsetY] = useState(0)
 
@@ -490,10 +490,14 @@ export default function Editor() {
     const isMobilePreview = windowSize.w <= 768
     const desktopSidePanel = windowSize.w >= 1024 ? 610 : 0
     const outerPadding = windowSize.w >= 1024 ? 132 : isMobilePreview ? 34 : 26
-    const maxScale = windowSize.w >= 1024 ? 1.02 : isMobilePreview ? 0.58 : 1.06
+    const maxScale = windowSize.w >= 1024 ? 1.02 : isMobilePreview ? 0.56 : 1.06
     const minScale = isMobilePreview ? 0.36 : 0.72
     const widthFit = Math.max(minScale, Math.min(maxScale, (windowSize.w - desktopSidePanel - outerPadding) / STAGE_W))
-    const reservedHeight = windowSize.w >= 1024 ? 178 : isMobilePreview ? 440 : 190
+    // On mobile, reserve ~56% of the viewport for the scrollable editing controls so the
+    // video preview stays a fixed, contained size and every editing option is reachable
+    // below it (instead of the preview eating the whole screen).
+    const mobileReserved = Math.max(420, Math.round(windowSize.h * 0.56))
+    const reservedHeight = windowSize.w >= 1024 ? 178 : isMobilePreview ? mobileReserved : 190
     const heightFit = Math.max(minScale, Math.min(maxScale, (windowSize.h - reservedHeight) / STAGE_H))
 
     return Math.min(widthFit, heightFit)
