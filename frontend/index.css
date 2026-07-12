@@ -39,7 +39,7 @@ html { min-height: 100%; background: var(--bg-base); }
 body {
   margin: 0;
   min-width: 320px;
-  min-height: 100vh;
+  min-height: 100dvh;
   background: var(--bg-base);
   color: var(--text-primary);
   font-family: 'Inter', ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
@@ -67,6 +67,29 @@ a { color: var(--accent); text-decoration: none; }
 a:hover { color: var(--accent-hover); }
 img, video { display: block; max-width: 100%; }
 
+/* ── Mobile-app foundation ──
+   Removes the grey tap flash, stops rubber-band scroll chaining, keeps momentum
+   scrolling, and prevents any accidental horizontal scroll on phones. */
+* { -webkit-tap-highlight-color: transparent; }
+
+html, body {
+  overscroll-behavior-y: none;
+  -webkit-text-size-adjust: 100%;
+}
+
+body { overflow-x: hidden; }
+
+/* Comfortable minimum tap targets for interactive controls on touch devices. */
+@media (hover: none) and (pointer: coarse) {
+  button, a.btn, .btn, [role="button"] { min-height: 44px; }
+}
+
+/* Any scroll container gets smooth momentum + contained overscroll. */
+.app-main, .editor-control-pane, .editor-preview-pane, .app-sidebar {
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+}
+
 
 /* ═══════════════════════════════════════════════════════════════
    APP SHELL — Layout
@@ -76,7 +99,7 @@ img, video { display: block; max-width: 100%; }
   position: relative;
   display: grid;
   grid-template-columns: 180px minmax(0, 1fr);
-  min-height: 100vh;
+  min-height: 100dvh;
   isolation: isolate;
 }
 
@@ -91,14 +114,14 @@ img, video { display: block; max-width: 100%; }
 .app-shell.app-editor-shell {
   grid-template-columns: 1fr;
   overflow: hidden;
-  height: 100vh;
+  height: 100dvh;
 }
 
 .app-shell.app-editor-shell .app-sidebar { display: none; }
 
 .app-shell.app-editor-shell .app-main {
   overflow: hidden;
-  height: 100vh;
+  height: 100dvh;
   min-height: unset;
 }
 
@@ -137,7 +160,7 @@ img, video { display: block; max-width: 100%; }
 .app-sidebar {
   position: sticky;
   top: 0;
-  height: 100vh;
+  height: 100dvh;
   display: flex;
   flex-direction: column;
   border-right: 1px solid var(--border);
@@ -268,11 +291,12 @@ img, video { display: block; max-width: 100%; }
   align-items: center;
   gap: 12px;
   padding: 0 16px;
-  height: 52px;
-  background: rgba(10, 10, 15, 0.85);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  border-bottom: 1px solid var(--border);
+  padding-top: env(safe-area-inset-top, 0);
+  min-height: calc(54px + env(safe-area-inset-top, 0));
+  background: rgba(10, 10, 15, 0.82);
+  backdrop-filter: blur(20px) saturate(150%);
+  -webkit-backdrop-filter: blur(20px) saturate(150%);
+  border-bottom: 1px solid var(--border-light);
 }
 
 .app-mobile-topbar strong {
@@ -297,53 +321,67 @@ img, video { display: block; max-width: 100%; }
 }
 
 
-/* ── Mobile Bottom Nav ── */
+/* ── Mobile Bottom Nav (app-like tab bar) ── */
 .app-bottom-nav {
   display: none;
   position: fixed;
   bottom: 0;
   left: 0; right: 0;
   z-index: 40;
-  height: 64px;
   padding-bottom: env(safe-area-inset-bottom, 0);
-  background: rgba(10, 10, 15, 0.88);
-  backdrop-filter: blur(24px);
-  -webkit-backdrop-filter: blur(24px);
-  border-top: 1px solid var(--border);
+  background: rgba(12, 12, 18, 0.9);
+  backdrop-filter: blur(26px) saturate(160%);
+  -webkit-backdrop-filter: blur(26px) saturate(160%);
+  border-top: 1px solid var(--border-light);
 }
 
 .app-bottom-nav nav {
   display: flex;
   justify-content: space-around;
-  align-items: center;
-  height: 100%;
+  align-items: stretch;
+  height: 62px;
+  padding: 6px 6px 4px;
+  gap: 2px;
 }
 
 .app-bottom-nav a {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 2px;
-  padding: 6px 0;
+  justify-content: center;
+  gap: 3px;
+  flex: 1;
+  border-radius: 14px;
+  padding: 4px 0 2px;
   color: var(--text-muted);
   text-decoration: none;
   font-size: 10px;
   font-weight: 600;
-  transition: color 0.15s ease;
-  min-width: 56px;
+  letter-spacing: 0.01em;
+  transition: color 0.15s ease, background 0.15s ease, transform 0.1s ease;
 }
 
-.app-bottom-nav a .material-symbols-outlined { font-size: 22px; }
+.app-bottom-nav a .material-symbols-outlined {
+  font-size: 23px;
+  transition: transform 0.15s ease;
+}
+
+.app-bottom-nav a:active { transform: scale(0.94); }
 
 .app-bottom-nav a.active {
   color: var(--accent);
+  background: var(--accent-glow);
+}
+
+.app-bottom-nav a.active .material-symbols-outlined {
+  font-variation-settings: 'FILL' 1;
 }
 
 
 /* ── Main content ── */
 .app-main {
   min-width: 0;
-  min-height: 100vh;
+  min-height: 100dvh;
 }
 
 
@@ -1099,7 +1137,7 @@ textarea.glass-input {
 .editor-page {
   display: flex;
   flex-direction: column;
-  height: 100vh;
+  height: 100dvh;
   overflow: hidden;
   background: var(--bg-base);
 }
@@ -1483,7 +1521,7 @@ textarea.glass-input {
 .auth-shell {
   display: grid;
   place-items: center;
-  min-height: 100vh;
+  min-height: 100dvh;
   padding: 24px;
 }
 
@@ -1851,7 +1889,7 @@ textarea.glass-input {
   .editor-layout {
     grid-template-columns: 1fr;
     grid-template-rows: auto 1fr;
-    height: calc(100vh - 56px);
+    height: calc(100dvh - 56px);
     overflow: hidden;
   }
 

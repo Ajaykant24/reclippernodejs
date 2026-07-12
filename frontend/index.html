@@ -9,17 +9,29 @@
   <head>
     <meta charset="UTF-8" />
     
-    <!-- RESPONSIVENESS: Ensures the page scales beautifully on mobile phones and tablets. -->
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-    
+    <!-- RESPONSIVENESS: Ensures the page scales beautifully on mobile phones and tablets.
+         maximum-scale/user-scalable keep the editor from mis-zooming on input focus. -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+
+    <!-- PWA: installable "Add to Home Screen" app that opens fullscreen like a native app. -->
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <meta name="theme-color" content="#0a0a0f" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="Reclipper" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <link rel="icon" type="image/png" sizes="64x64" href="/favicon-64.png" />
+    <link rel="icon" type="image/png" sizes="192x192" href="/icon-192.png" />
+
     <!-- FONTS PRECONNECT: Speeds up loading Google Fonts by making early connections to font servers. -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    
+
     <!-- FONTS: Inter (body text) + Material Symbols Outlined (icons) -->
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
     <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined" rel="stylesheet" />
-    
+
     <!-- BROWSER TAB TITLE: The name that appears at the top of your web browser's tab. -->
     <title>Reclipper</title>
   </head>

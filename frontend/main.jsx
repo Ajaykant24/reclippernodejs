@@ -21,3 +21,11 @@ createRoot(document.getElementById('root')).render(
     </BrowserRouter>
   </React.StrictMode>,
 )
+
+// PWA: register the service worker so the app is installable to the home screen.
+// Network-first (see public/sw.js) so deploys always show immediately — no stale cache.
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js').catch(() => {})
+  })
+}
