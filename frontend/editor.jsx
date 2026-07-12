@@ -1346,33 +1346,32 @@ export default function Editor() {
   return (
     <div className="editor-page mobile-page mobile-editor-page">
 
-      {/* ── SECTION A: TOP EDIT BAR CONTROLLER ──
-          - Title and fast-jump chevrons to move between project Clips folder indexes.
-      */}
+      {/* ── SECTION A: TOP BAR — close · quality · export ── */}
+      <header className="editor-topbar-v2">
+        <button type="button" className="editor-top-close" onClick={goBack} aria-label="Close editor">
+          <span className="material-symbols-outlined">close</span>
+        </button>
+        <div className="editor-top-right">
+          <span className="editor-quality-pill">HD</span>
+          <button
+            type="button"
+            className="editor-top-export"
+            disabled={exporting || !clipUrl}
+            onClick={handleExport}
+          >
+            {exporting ? (
+              <span className="material-symbols-outlined anim-spin" style={{ fontSize: 16 }}>progress_activity</span>
+            ) : null}
+            {exporting ? 'Exporting…' : 'Export'}
+          </button>
+        </div>
+      </header>
 
-
-      {/* ── SECTION B: TWO-COLUMN EDIT LAYOUT ── */}
+      {/* ── SECTION B: EDIT LAYOUT ── */}
       <div className="editor-layout">
 
         {/* LEFT COLUMN: The live visual mockup canvas stage player */}
         <section ref={previewPaneRef} className="editor-preview-pane" style={{ position: 'relative', display: 'flex', justifyContent: 'center' }}>
-          <button className="btn btn-glass btn-sm" onClick={goBack} style={{ position: 'absolute', top: 8, left: 8, zIndex: 10 }}>
-            <span className="material-symbols-outlined" style={{ fontSize: 15 }}>arrow_back</span>
-          </button>
-          <button
-            type="button"
-            className="btn btn-solid-white btn-sm"
-            disabled={exporting || !clipUrl}
-            onClick={handleExport}
-            style={{ position: 'absolute', top: 8, right: 8, zIndex: 10 }}
-          >
-            {exporting ? (
-              <span className="material-symbols-outlined anim-spin" style={{ fontSize: 15 }}>progress_activity</span>
-            ) : (
-              <span className="material-symbols-outlined" style={{ fontSize: 15, fontVariationSettings: "'FILL' 1" }}>download</span>
-            )}
-            {exporting ? 'Exporting…' : 'Export'}
-          </button>
           <div className="glass-strong editor-preview-shell" style={{ width: previewPanelWidth, maxWidth: '100%', position: 'relative' }}>
             <div className="editor-stage-shell" style={{ width: stageWidth }}>
               <div className="editor-stage-wrap" style={{ width: stageWidth, height: stageHeight }}>
