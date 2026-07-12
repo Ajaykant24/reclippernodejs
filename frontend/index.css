@@ -1367,6 +1367,12 @@ textarea.glass-input {
   /* no extra width override needed on desktop */
 }
 
+/* Bottom toolbar + slide-up sheet header/backdrop are MOBILE-ONLY.
+   Hidden on desktop, where the right-hand control pane + top tabs are used. */
+.editor-toolbar { display: none; }
+.editor-sheet-head { display: none; }
+.editor-sheet-backdrop { display: none; }
+
 /* Tab list */
 .editor-tab-list {
   display: flex;
@@ -2058,56 +2064,138 @@ textarea.glass-input {
     grid-template-columns: 1fr;
   }
 
-  /* Editor mobile — fixed split. The preview row has a DEFINED height (44svh)
-     so it stays a stable size and the stage can be measured/fitted to it without
-     a circular auto-height loop. svh = stable viewport, immune to address-bar. */
+  /* ── Editor mobile — reference-style: big preview + bottom toolbar + slide-up sheet ── */
   .editor-layout {
-    grid-template-columns: 1fr;
-    grid-template-rows: 44svh minmax(0, 1fr);
+    display: flex;
+    flex-direction: column;
+    position: relative;
     height: 100svh;
     overflow: hidden;
   }
 
-  /* Fixed-size video preview pinned at the top. */
+  /* Large video preview fills the space above the toolbar. */
   .editor-preview-pane {
-    padding: 4px 8px 2px;
-    overflow: hidden;
+    flex: 1;
     min-height: 0;
-    height: 100%;
+    overflow: hidden;
+    padding: 8px 8px calc(72px + env(safe-area-inset-bottom, 0px));
   }
 
+  /* Desktop tab header is replaced by the bottom toolbar on mobile. */
+  .editor-desktop-tabs { display: none; }
+
+  /* Sheet header (title + Done) is shown on mobile. */
+  .editor-sheet-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 12px 16px 10px;
+    position: sticky;
+    top: 0;
+    background: var(--bg-surface);
+    border-bottom: 1px solid var(--border-light);
+    z-index: 2;
+  }
+  .editor-sheet-title {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 15px;
+    font-weight: 700;
+  }
+  .editor-sheet-title .material-symbols-outlined { font-size: 20px; color: var(--accent); }
+  .editor-sheet-done {
+    border: 0;
+    background: var(--accent-gradient);
+    color: #fff;
+    font-weight: 700;
+    font-size: 14px;
+    padding: 8px 18px;
+    border-radius: var(--radius-pill);
+    box-shadow: var(--accent-shadow);
+  }
+
+  /* Control pane becomes a slide-up bottom sheet above the toolbar. */
   .editor-control-pane {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: calc(64px + env(safe-area-inset-bottom, 0px));
+    z-index: 50;
+    max-height: 58svh;
+    height: auto;
     border-left: 0;
     border-top: 1px solid var(--border);
-    max-height: none;
-    height: 100%;
-    min-height: 0;
+    border-radius: 20px 20px 0 0;
+    background: var(--bg-surface);
+    box-shadow: 0 -16px 44px rgba(0, 0, 0, 0.5);
     overflow-y: auto;
     -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
+    transform: translateY(125%);
+    transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    visibility: hidden;
+  }
+  .editor-control-pane.sheet-open {
+    transform: translateY(0);
+    visibility: visible;
   }
 
-  /* Hide the drag handle and toggle — not needed in fixed layout */
-  .editor-sheet-handle-row {
-    display: none;
+  /* Dim backdrop behind the open sheet. */
+  .editor-sheet-backdrop {
+    display: block;
+    position: absolute;
+    inset: 0;
+    bottom: calc(64px + env(safe-area-inset-bottom, 0px));
+    z-index: 45;
+    background: rgba(0, 0, 0, 0.4);
+    animation: fadeIn 0.2s ease;
   }
 
-  .editor-sheet-toggle {
-    display: none;
-  }
-
-  /* All sheet states look the same — always fully visible */
-  .editor-mobile-sheet-peek,
-  .editor-mobile-sheet-mid,
-  .editor-mobile-sheet-full {
-    max-height: none;
-    height: 100%;
-  }
-
-  /* Sticky export */
-  .editor-sticky-export {
-    position: sticky;
+  /* Bottom toolbar — flat icons + labels, evenly spaced, pinned to the bottom. */
+  .editor-toolbar {
+    display: flex;
+    align-items: stretch;
+    gap: 2px;
+    position: absolute;
+    left: 0;
+    right: 0;
     bottom: 0;
+    z-index: 55;
+    height: calc(64px + env(safe-area-inset-bottom, 0px));
+    padding: 6px 4px env(safe-area-inset-bottom, 0px);
+    background: rgba(12, 12, 18, 0.96);
+    border-top: 1px solid var(--border-light);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    overflow-x: auto;
+    scrollbar-width: none;
   }
+  .editor-toolbar::-webkit-scrollbar { display: none; }
+  .editor-toolbar-btn {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 3px;
+    flex: 1 0 auto;
+    min-width: 60px;
+    border: 0;
+    border-radius: 12px;
+    background: transparent;
+    color: var(--text-secondary);
+    font-size: 10px;
+    font-weight: 600;
+  }
+  .editor-toolbar-btn .material-symbols-outlined { font-size: 23px; }
+  .editor-toolbar-btn:active { transform: scale(0.94); }
+  .editor-toolbar-btn.active {
+    color: var(--accent);
+  }
+  .editor-toolbar-btn.active .material-symbols-outlined { font-variation-settings: 'FILL' 1; }
+
+  @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
 }
 
 /* Extra small screens */

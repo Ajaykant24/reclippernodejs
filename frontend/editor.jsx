@@ -426,6 +426,10 @@ export default function Editor() {
 
   const [tab, setTab] = useState('overlay') // Currently active customizer sidebar tab
   const [mobileSheet, setMobileSheet] = useState('mid')
+  // Mobile bottom-sheet: which tool panel is open (null = closed, showing just the
+  // big preview + bottom toolbar, like the CapCut/Captions reference).
+  const [panelOpen, setPanelOpen] = useState(false)
+  const openTool = useCallback(id => { setTab(id); setPanelOpen(true) }, [])
   const [ratio, setRatio] = useState(() => inferClipRatio(clip, routeState))
   const [bgType, setBgType] = useState(ep.bgType ?? routeState.bgType ?? 'black')
   const [bgCustomColor, setBgCustomColor] = useState(ep.bgCustomColor ?? routeState.bgColor ?? '#111827')
@@ -530,7 +534,7 @@ export default function Editor() {
   // DYNAMIC COMPONENT RESIZER MATH: fits the 9:16 stage inside the preview pane.
   const stageScale = useMemo(() => {
     const isMobilePreview = windowSize.w <= 768
-    const maxScale = windowSize.w >= 1024 ? 1.05 : isMobilePreview ? 0.62 : 1.06
+    const maxScale = windowSize.w >= 1024 ? 1.05 : isMobilePreview ? 1.0 : 1.06
     const minScale = isMobilePreview ? 0.30 : 0.6
     // Reserve vertical room inside the pane for the playback bar + gaps + padding,
     // and a little horizontal padding, so the stage sits comfortably.
@@ -543,7 +547,7 @@ export default function Editor() {
     } else {
       // First-paint fallback before the ResizeObserver reports (avoids a flash).
       availW = windowSize.w - (windowSize.w >= 1024 ? 640 : 34)
-      availH = (isMobilePreview ? windowSize.h * 0.42 : windowSize.h - 190)
+      availH = (isMobilePreview ? windowSize.h * 0.7 : windowSize.h - 190)
     }
     const widthFit = availW / STAGE_W
     const heightFit = availH / STAGE_H
@@ -1334,7 +1338,8 @@ export default function Editor() {
   }
 
   const wideControls = tab === 'overlay' || tab === 'subtitles' || tab === 'canvas'
-  const controlPaneClass = `editor-control-pane${wideControls ? ' editor-control-pane-wide' : ''} editor-mobile-sheet-${mobileSheet}`
+  const controlPaneClass = `editor-control-pane${wideControls ? ' editor-control-pane-wide' : ''} editor-mobile-sheet-${mobileSheet}${panelOpen ? ' sheet-open' : ''}`
+  const activeTool = TABS.find(item => item.id === tab)
 
   return (
     <div className="editor-page mobile-page mobile-editor-page">
@@ -1625,26 +1630,19 @@ export default function Editor() {
         {/* RIGHT COLUMN: The editor dashboard panel switches tab forms */}
         <aside className={controlPaneClass}>
 
-          <div className="editor-sheet-handle-row">
-            <button
-              type="button"
-              className="editor-sheet-grip"
-              aria-label="Resize editor settings"
-              onPointerDown={startMobileSheetDrag}
-              onKeyDown={handleSheetKeyDown}
-            >
-              <span />
-            </button>
-            <button type="button" className="editor-sheet-toggle" onClick={toggleMobileSheet}>
-              <span>Settings</span>
-              <span className="material-symbols-outlined">
-                {mobileSheet === 'full' ? 'keyboard_arrow_down' : 'keyboard_arrow_up'}
-              </span>
+          {/* MOBILE SHEET HEADER: title of the open tool + Done to close the sheet. */}
+          <div className="editor-sheet-head">
+            <span className="editor-sheet-title">
+              {activeTool ? <span className="material-symbols-outlined">{activeTool.icon}</span> : null}
+              {activeTool?.label || 'Edit'}
+            </span>
+            <button type="button" className="editor-sheet-done" onClick={() => setPanelOpen(false)}>
+              Done
             </button>
           </div>
 
-          {/* Editor control tabs header */}
-          <section className="editor-card">
+          {/* DESKTOP TAB HEADER (hidden on mobile — mobile uses the bottom toolbar) */}
+          <section className="editor-card editor-desktop-tabs">
             <div className="editor-tab-list">
               {TABS.map(item => (
                 <button
@@ -2064,6 +2062,24 @@ export default function Editor() {
 
 
         </aside>
+
+        {/* Tap-away backdrop shown behind the open tool sheet (mobile). */}
+        {panelOpen ? <div className="editor-sheet-backdrop" onClick={() => setPanelOpen(false)} /> : null}
+
+        {/* MOBILE BOTTOM TOOLBAR — tap a tool to slide up its panel (reference style). */}
+        <nav className="editor-toolbar">
+          {TABS.map(item => (
+            <button
+              key={item.id}
+              type="button"
+              className={`editor-toolbar-btn${panelOpen && tab === item.id ? ' active' : ''}`}
+              onClick={() => openTool(item.id)}
+            >
+              <span className="material-symbols-outlined">{item.icon}</span>
+              <span className="editor-toolbar-label">{item.label}</span>
+            </button>
+          ))}
+        </nav>
       </div>
 
     </div>
