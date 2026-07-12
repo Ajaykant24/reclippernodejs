@@ -19,6 +19,22 @@ const BG_OPTS = [
   { id: 'custom', label: 'Custom', preview: null }, // Displays active color picker Hex on select
 ]
 
+// ── CURATED BACKGROUND COLOR SWATCHES ──
+// Matches editor.jsx BACKGROUND_COLORS so the Create page and editor offer the same
+// tasteful palette. Shown as tappable circles instead of the phone's native color dialog.
+const BACKGROUND_SWATCHES = [
+  { label: 'Black',    value: '#0f1116' },
+  { label: 'White',    value: '#ffffff' },
+  { label: 'Midnight', value: '#111827' },
+  { label: 'Charcoal', value: '#22252c' },
+  { label: 'Graphite', value: '#3b3f46' },
+  { label: 'Lime',     value: '#a0d83e' },
+  { label: 'Aqua',     value: '#5ce1e6' },
+  { label: 'Orange',   value: '#ff9700' },
+  { label: 'Red',      value: '#ff3b30' },
+  { label: 'Blue',     value: '#2f80ed' },
+]
+
 // ── ASPECT CROP PRESENTS ──
 // - Maps ratio labels, descriptions, and Google icons.
 const DEFAULT_RATIO = 'original'
@@ -408,29 +424,49 @@ export default function RepurposePage() {
               })}
             </div>
 
-            {/* Custom color picker panel (Only visible when Custom background is checked) */}
+            {/* Custom color panel (Only visible when Custom background is checked).
+                Tasteful in-app swatch circles + hex input — no native OS color dialog. */}
             {bgType === 'custom' && (
-              <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginTop: 12, padding: 14, borderRadius: 8, background: 'rgba(255,255,255,0.03)', border: `1px solid ${D.cardBorder}` }}>
-                <div style={{ position: 'relative', width: 38, height: 38, flexShrink: 0 }}>
-                  <div style={{ width: 38, height: 38, borderRadius: 8, background: bgCustomColor, border: `1px solid ${D.cardBorder}`, cursor: 'pointer' }} onClick={() => document.getElementById('rp-color-input').click()} />
-                  <input
-                    id="rp-color-input"
-                    type="color"
-                    value={bgCustomColor}
-                    onChange={e => setBgCustomColor(e.target.value)}
-                    aria-label="Canvas background color"
-                    style={{ position: 'absolute', opacity: 0, width: 0, height: 0, pointerEvents: 'none' }}
-                  />
+              <div style={{ marginTop: 12, padding: 14, borderRadius: 8, background: 'rgba(255,255,255,0.03)', border: `1px solid ${D.cardBorder}` }}>
+                <div style={{ fontSize: 13, fontWeight: 700, color: D.text, marginBottom: 10 }}>Canvas color</div>
+
+                {/* Curated background-color circles */}
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, marginBottom: 14 }}>
+                  {BACKGROUND_SWATCHES.map(sw => {
+                    const active = bgCustomColor.toLowerCase() === sw.value.toLowerCase()
+                    return (
+                      <button
+                        key={sw.value}
+                        type="button"
+                        title={sw.label}
+                        aria-label={sw.label}
+                        onClick={() => setBgCustomColor(sw.value)}
+                        style={{
+                          width: 34, height: 34, borderRadius: '50%', flexShrink: 0, cursor: 'pointer',
+                          background: sw.value,
+                          border: active ? `2px solid ${D.accent}` : `1px solid ${D.cardBorder}`,
+                          boxShadow: active ? `0 0 0 3px ${D.accentGlow}` : 'none',
+                          padding: 0,
+                        }}
+                      />
+                    )
+                  })}
                 </div>
-                <div style={{ flex: 1 }}>
-                  <div style={{ fontSize: 13, fontWeight: 700, color: D.text, marginBottom: 4 }}>Canvas color</div>
-                  <input
-                    type="text"
-                    value={bgCustomColor}
-                    onChange={e => { if (/^#[0-9a-fA-F]{0,6}$/.test(e.target.value)) setBgCustomColor(e.target.value) }}
-                    maxLength={7}
-                    style={{ fontSize: 12, fontFamily: 'monospace', color: D.textMuted, background: 'transparent', border: `1px solid ${D.cardBorder}`, borderRadius: 6, padding: '3px 8px', width: 90, outline: 'none' }}
-                  />
+
+                {/* Exact hex entry for any color */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <div style={{ width: 34, height: 34, borderRadius: 8, flexShrink: 0, background: bgCustomColor, border: `1px solid ${D.cardBorder}` }} />
+                  <div>
+                    <div style={{ fontSize: 11, fontWeight: 700, color: D.textMuted, marginBottom: 3 }}>Or enter a hex code</div>
+                    <input
+                      type="text"
+                      value={bgCustomColor}
+                      onChange={e => { if (/^#[0-9a-fA-F]{0,6}$/.test(e.target.value)) setBgCustomColor(e.target.value) }}
+                      maxLength={7}
+                      placeholder="#111827"
+                      style={{ fontSize: 12, fontFamily: 'monospace', color: D.text, background: 'transparent', border: `1px solid ${D.cardBorder}`, borderRadius: 6, padding: '4px 8px', width: 100, outline: 'none' }}
+                    />
+                  </div>
                 </div>
               </div>
             )}
