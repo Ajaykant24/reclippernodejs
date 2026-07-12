@@ -46,12 +46,12 @@ const BG_OPTIONS = [
 ]
 
 const TABS = [
-  { id: 'overlay', label: 'Overlay' },
-  { id: 'subtitles', label: 'Subtitles' },
-  { id: 'canvas', label: 'Ratio' },
-  { id: 'background', label: 'Background' },
-  { id: 'igcaption', label: 'IG Caption' },
-  { id: 'logo', label: 'Logo' },
+  { id: 'overlay', label: 'Overlay', icon: 'title' },
+  { id: 'subtitles', label: 'Subtitles', icon: 'subtitles' },
+  { id: 'canvas', label: 'Ratio', icon: 'aspect_ratio' },
+  { id: 'background', label: 'Background', icon: 'wallpaper' },
+  { id: 'igcaption', label: 'Caption', icon: 'tag' },
+  { id: 'logo', label: 'Logo', icon: 'branding_watermark' },
 ]
 
 const BACKGROUND_COLORS = [
@@ -349,6 +349,38 @@ function getPreviewBox(label, clip) {
 
   const ratio = RATIOS.find(item => item.label === label) || RATIOS[0]
   return makeBox(ratio)
+}
+
+// Shared palette + in-app color picker (circles + hex). Replaces native
+// <input type="color"> so the phone's OS color dialog never opens.
+const SWATCH_COLORS = ['#ffffff', '#000000', '#ff5a3d', '#ffd60a', '#a0d83e', '#5ce1e6', '#2f80ed', '#ff3b30', '#ff9700', '#111827']
+
+function ColorSwatchRow({ value, onChange, colors = SWATCH_COLORS }) {
+  const current = String(value || '').toLowerCase()
+  return (
+    <div className="swatch-row">
+      {colors.map(c => (
+        <button
+          key={c}
+          type="button"
+          aria-label={c}
+          title={c}
+          onClick={() => onChange(c)}
+          className={`swatch${current === c.toLowerCase() ? ' active' : ''}`}
+          style={{ background: c }}
+        />
+      ))}
+      <label className="swatch-hex">
+        <span className="swatch-hex-dot" style={{ background: value }} />
+        <input
+          type="text"
+          value={value}
+          maxLength={7}
+          onChange={e => { if (/^#[0-9a-fA-F]{0,6}$/.test(e.target.value)) onChange(e.target.value) }}
+        />
+      </label>
+    </div>
+  )
 }
 
 function AlignButton({ active, icon, onClick }) {
@@ -1575,7 +1607,8 @@ export default function Editor() {
                   className={`editor-tab${tab === item.id ? ' active' : ''}`}
                   onClick={() => setTab(item.id)}
                 >
-                  {item.label}
+                  <span className="material-symbols-outlined">{item.icon}</span>
+                  <span className="editor-tab-label">{item.label}</span>
                 </button>
               ))}
             </div>
@@ -1653,7 +1686,7 @@ export default function Editor() {
 
                     <label className="editor-field">
                       <span className="text-label">Color</span>
-                      <input type="color" className="glass-input" style={{ height: 40, padding: 2 }} value={textColor} onChange={event => setTextColor(event.target.value)} />
+                      <ColorSwatchRow value={textColor} onChange={setTextColor} />
                     </label>
                   </div>
 
@@ -1733,7 +1766,7 @@ export default function Editor() {
 
                     <label className="editor-field">
                       <span className="text-label">Text color</span>
-                      <input type="color" className="glass-input" value={captionPrimaryColor} style={{ height: 42, padding: 2 }} onChange={event => setCaptionPrimaryColor(event.target.value)} />
+                      <ColorSwatchRow value={captionPrimaryColor} onChange={setCaptionPrimaryColor} />
                     </label>
 
                     <label className="editor-field">
@@ -1859,7 +1892,7 @@ export default function Editor() {
                 {bgType === 'custom' ? (
                   <label className="editor-field">
                     <span className="text-label">Custom background color</span>
-                    <input type="color" className="glass-input" value={bgCustomColor} style={{ height: 40, padding: 2 }} onChange={event => setBgCustomColor(event.target.value)} />
+                    <ColorSwatchRow value={bgCustomColor} onChange={setBgCustomColor} />
                   </label>
                 ) : null}
 

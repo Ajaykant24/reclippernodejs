@@ -1306,9 +1306,9 @@ textarea.glass-input {
 /* Tab list */
 .editor-tab-list {
   display: flex;
-  gap: 0;
-  border-bottom: 1px solid var(--border);
-  padding: 0 12px;
+  gap: 6px;
+  border-bottom: 1px solid var(--border-light);
+  padding: 8px 10px;
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
   scrollbar-width: none;
@@ -1319,27 +1319,35 @@ textarea.glass-input {
 
 .editor-tab {
   display: flex;
+  flex-direction: column;
   align-items: center;
-  gap: 6px;
-  padding: 12px 14px;
-  border: 0;
-  border-bottom: 2px solid transparent;
+  justify-content: center;
+  gap: 3px;
+  padding: 8px 12px;
+  border: 1px solid transparent;
+  border-radius: 12px;
   background: transparent;
   color: var(--text-muted);
-  font-size: 13px;
+  font-size: 11px;
   font-weight: 600;
   cursor: pointer;
   transition: var(--transition);
   white-space: nowrap;
-  min-height: 44px;
+  min-width: 62px;
+  min-height: 52px;
 }
+
+.editor-tab .material-symbols-outlined { font-size: 21px; }
 
 .editor-tab:hover { color: var(--text-secondary); }
 
 .editor-tab.active {
-  color: var(--text-primary);
-  border-bottom-color: var(--accent);
+  color: var(--accent);
+  background: var(--accent-glow);
+  border-color: var(--accent-border);
 }
+
+.editor-tab.active .material-symbols-outlined { font-variation-settings: 'FILL' 1; }
 
 /* Editor cards (panels inside control pane) */
 .editor-card {
@@ -1347,6 +1355,59 @@ textarea.glass-input {
   border: none;
   border-radius: 0;
   padding: 16px;
+}
+
+/* In-app color swatch picker (replaces native color dialog) */
+.swatch-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.swatch {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  padding: 0;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: transform 0.1s ease, box-shadow 0.15s ease;
+}
+
+.swatch:active { transform: scale(0.9); }
+
+.swatch.active {
+  border: 2px solid var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-glow);
+}
+
+.swatch-hex {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px 4px 6px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+  background: var(--bg-card);
+}
+
+.swatch-hex-dot {
+  width: 20px; height: 20px;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.swatch-hex input {
+  width: 74px;
+  border: 0;
+  background: transparent;
+  color: var(--text-primary);
+  font-family: ui-monospace, monospace;
+  font-size: 13px;
+  outline: none;
 }
 
 .editor-card.editor-tool-card {
