@@ -134,6 +134,11 @@ body { overflow-x: hidden; }
 
 .app-shell.app-editor-shell .app-sidebar { display: none; }
 
+/* The editor is a full-screen shell — hide the app's mobile top bar and bottom
+   nav so they never overlap the editor's own controls + bottom toolbar. */
+.app-shell.app-editor-shell .app-mobile-topbar,
+.app-shell.app-editor-shell .app-bottom-nav { display: none !important; }
+
 .app-shell.app-editor-shell .app-main {
   overflow: hidden;
   height: 100vh;
@@ -2073,12 +2078,14 @@ textarea.glass-input {
     overflow: hidden;
   }
 
-  /* Large video preview fills the space above the toolbar. */
+  /* Framed video preview, centered in the space above the bottom toolbar. */
   .editor-preview-pane {
     flex: 1;
     min-height: 0;
     overflow: hidden;
-    padding: 8px 8px calc(72px + env(safe-area-inset-bottom, 0px));
+    align-items: center;
+    justify-content: center;
+    padding: 10px 12px calc(78px + env(safe-area-inset-bottom, 0px));
   }
 
   /* Desktop tab header is replaced by the bottom toolbar on mobile. */

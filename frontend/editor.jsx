@@ -534,7 +534,9 @@ export default function Editor() {
   // DYNAMIC COMPONENT RESIZER MATH: fits the 9:16 stage inside the preview pane.
   const stageScale = useMemo(() => {
     const isMobilePreview = windowSize.w <= 768
-    const maxScale = windowSize.w >= 1024 ? 1.05 : isMobilePreview ? 1.0 : 1.06
+    // Cap the mobile preview so the 9:16 canvas sits as a framed card with margins
+    // (not full-bleed edge-to-edge).
+    const maxScale = windowSize.w >= 1024 ? 1.05 : isMobilePreview ? 0.74 : 1.06
     const minScale = isMobilePreview ? 0.30 : 0.6
     // Reserve vertical room inside the pane for the playback bar + gaps + padding,
     // and a little horizontal padding, so the stage sits comfortably.
