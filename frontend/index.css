@@ -128,14 +128,16 @@ body { overflow-x: hidden; }
 .app-shell.app-editor-shell {
   grid-template-columns: 1fr;
   overflow: hidden;
-  height: 100dvh;
+  height: 100vh;      /* fallback */
+  height: 100svh;     /* stable — doesn't shift with the mobile address bar */
 }
 
 .app-shell.app-editor-shell .app-sidebar { display: none; }
 
 .app-shell.app-editor-shell .app-main {
   overflow: hidden;
-  height: 100dvh;
+  height: 100vh;
+  height: 100svh;
   min-height: unset;
 }
 
@@ -1185,7 +1187,8 @@ textarea.glass-input {
 .editor-page {
   display: flex;
   flex-direction: column;
-  height: 100dvh;
+  height: 100vh;      /* fallback */
+  height: 100svh;     /* stable editor viewport — no address-bar reflow */
   overflow: hidden;
   background: var(--bg-base);
 }
@@ -1994,21 +1997,22 @@ textarea.glass-input {
     grid-template-columns: 1fr;
   }
 
-  /* Editor mobile — fixed split, no scrolling */
+  /* Editor mobile — fixed split. The preview row has a DEFINED height (44svh)
+     so it stays a stable size and the stage can be measured/fitted to it without
+     a circular auto-height loop. svh = stable viewport, immune to address-bar. */
   .editor-layout {
     grid-template-columns: 1fr;
-    grid-template-rows: auto 1fr;
-    height: calc(100dvh - 56px);
+    grid-template-rows: 44svh minmax(0, 1fr);
+    height: 100svh;
     overflow: hidden;
   }
 
-  /* Fixed-size video preview pinned at the top; never taller than ~46% of the
-     screen so the editing controls below always have room and stay scrollable. */
+  /* Fixed-size video preview pinned at the top. */
   .editor-preview-pane {
     padding: 4px 8px 2px;
     overflow: hidden;
-    flex-shrink: 0;
-    max-height: 46vh;
+    min-height: 0;
+    height: 100%;
   }
 
   .editor-control-pane {

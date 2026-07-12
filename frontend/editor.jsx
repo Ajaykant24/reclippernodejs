@@ -518,27 +518,37 @@ export default function Editor() {
 
   // Dynamic screen sizes listeners
   const [windowSize, setWindowSize] = useState({ w: window.innerWidth, h: window.innerHeight })
+  // Measured size of the preview pane container. The stage is fitted to THIS box
+  // (via ResizeObserver below) rather than window.innerHeight, so the video preview
+  // never jitters/resizes when the mobile address bar or keyboard shows/hides.
+  const previewPaneRef = useRef(null)
+  const [paneSize, setPaneSize] = useState(null)
 
   const ratioOptions = useMemo(() => [{ label: EXACT_CROP_RATIO }, ...RATIOS], [])
   const pb = useMemo(() => getPreviewBox(ratio, clip), [clip, ratio])
 
-  // DYNAMIC COMPONENT RESIZER MATH: Fits the 9:16 mobile stage perfectly to whatever your monitor screen resolution is.
+  // DYNAMIC COMPONENT RESIZER MATH: fits the 9:16 stage inside the preview pane.
   const stageScale = useMemo(() => {
     const isMobilePreview = windowSize.w <= 768
-    const desktopSidePanel = windowSize.w >= 1024 ? 610 : 0
-    const outerPadding = windowSize.w >= 1024 ? 132 : isMobilePreview ? 34 : 26
-    const maxScale = windowSize.w >= 1024 ? 1.02 : isMobilePreview ? 0.56 : 1.06
-    const minScale = isMobilePreview ? 0.36 : 0.72
-    const widthFit = Math.max(minScale, Math.min(maxScale, (windowSize.w - desktopSidePanel - outerPadding) / STAGE_W))
-    // On mobile, reserve ~56% of the viewport for the scrollable editing controls so the
-    // video preview stays a fixed, contained size and every editing option is reachable
-    // below it (instead of the preview eating the whole screen).
-    const mobileReserved = Math.max(420, Math.round(windowSize.h * 0.56))
-    const reservedHeight = windowSize.w >= 1024 ? 178 : isMobilePreview ? mobileReserved : 190
-    const heightFit = Math.max(minScale, Math.min(maxScale, (windowSize.h - reservedHeight) / STAGE_H))
-
-    return Math.min(widthFit, heightFit)
-  }, [windowSize.h, windowSize.w])
+    const maxScale = windowSize.w >= 1024 ? 1.05 : isMobilePreview ? 0.62 : 1.06
+    const minScale = isMobilePreview ? 0.30 : 0.6
+    // Reserve vertical room inside the pane for the playback bar + gaps + padding,
+    // and a little horizontal padding, so the stage sits comfortably.
+    const reservedY = 78
+    const padX = 24
+    let availW, availH
+    if (paneSize && paneSize.w > 0 && paneSize.h > 0) {
+      availW = paneSize.w - padX
+      availH = paneSize.h - reservedY
+    } else {
+      // First-paint fallback before the ResizeObserver reports (avoids a flash).
+      availW = windowSize.w - (windowSize.w >= 1024 ? 640 : 34)
+      availH = (isMobilePreview ? windowSize.h * 0.42 : windowSize.h - 190)
+    }
+    const widthFit = availW / STAGE_W
+    const heightFit = availH / STAGE_H
+    return Math.max(minScale, Math.min(maxScale, Math.min(widthFit, heightFit)))
+  }, [paneSize, windowSize.w, windowSize.h])
 
   const stageWidth = STAGE_W * stageScale
   const stageHeight = STAGE_H * stageScale
@@ -698,13 +708,49 @@ export default function Editor() {
     navigate(`/editor/${getClipIdValue(target)}`)
   }
 
-  // Window resizing helper
+  // Window resizing helper. On mobile we IGNORE height-only changes (the address
+  // bar / keyboard toggling) so the stage never jitters; we only care about width
+  // (and orientation, which changes width). Desktop tracks both.
   useEffect(() => {
     const onResize = () => {
-      setWindowSize({ w: window.innerWidth, h: window.innerHeight })
+      setWindowSize(prev => {
+        const w = window.innerWidth
+        const h = window.innerHeight
+        const isMobile = w <= 768
+        // Ignore small height-only wiggles on mobile (address bar). Big height jumps
+        // (orientation) also change width, so those still pass through.
+        if (isMobile && w === prev.w && Math.abs(h - prev.h) < 160) return prev
+        return { w, h }
+      })
     }
     window.addEventListener('resize', onResize)
-    return () => window.removeEventListener('resize', onResize)
+    window.addEventListener('orientationchange', onResize)
+    return () => {
+      window.removeEventListener('resize', onResize)
+      window.removeEventListener('orientationchange', onResize)
+    }
+  }, [])
+
+  // Measure the preview pane and fit the stage to it (stable against address-bar noise).
+  useEffect(() => {
+    const el = previewPaneRef.current
+    if (!el) return undefined
+    const measure = () => {
+      const rect = el.getBoundingClientRect()
+      setPaneSize(prev => {
+        const w = Math.round(rect.width)
+        const h = Math.round(rect.height)
+        if (prev && Math.abs(prev.w - w) < 2 && Math.abs(prev.h - h) < 2) return prev
+        return { w, h }
+      })
+    }
+    measure()
+    let ro
+    if (typeof ResizeObserver !== 'undefined') {
+      ro = new ResizeObserver(measure)
+      ro.observe(el)
+    }
+    return () => { if (ro) ro.disconnect() }
   }, [])
 
   // Initialization/Reload watcher
@@ -1302,7 +1348,7 @@ export default function Editor() {
       <div className="editor-layout">
 
         {/* LEFT COLUMN: The live visual mockup canvas stage player */}
-        <section className="editor-preview-pane" style={{ position: 'relative', display: 'flex', justifyContent: 'center' }}>
+        <section ref={previewPaneRef} className="editor-preview-pane" style={{ position: 'relative', display: 'flex', justifyContent: 'center' }}>
           <button className="btn btn-glass btn-sm" onClick={goBack} style={{ position: 'absolute', top: 8, left: 8, zIndex: 10 }}>
             <span className="material-symbols-outlined" style={{ fontSize: 15 }}>arrow_back</span>
           </button>
