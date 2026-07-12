@@ -5,7 +5,7 @@
 
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { api } from './api/client'
+import { api, saveSession as persistSession } from './api/client'
 
 export default function SignInPage() {
   const navigate = useNavigate()
@@ -15,10 +15,10 @@ export default function SignInPage() {
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
 
-  // SESSION CACHER: Saves the server response token and user info, then redirects you to /dashboard.
+  // SESSION CACHER: Safely stores the session token + user (guards bad tokens),
+  // then redirects you to /dashboard.
   const saveSession = session => {
-    localStorage.setItem('token', session.token)
-    localStorage.setItem('user', JSON.stringify(session.user))
+    persistSession(session)
     navigate('/dashboard')
   }
 

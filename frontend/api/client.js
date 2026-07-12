@@ -26,6 +26,54 @@ export function resolveUrl(path) {
   return `${API_BASE}${path}`
 }
 
+// ── SESSION HELPERS ──
+// Keeping users logged in: the session token is stored in localStorage, which
+// persists across app restarts. These helpers make sure we NEVER store a bad
+// token (which would silently break the session / look like a random logout).
+
+const TOKEN_KEY = 'token'
+const USER_KEY = 'user'
+
+function isValidToken(token) {
+  return typeof token === 'string'
+    && token.trim() !== ''
+    && token !== 'undefined'
+    && token !== 'null'
+    && token !== 'local-user'
+}
+
+// Persist a login session. Throws if the server didn't return a usable token,
+// so callers surface a clear error instead of storing a broken session.
+export function saveSession(session) {
+  const token = session && session.token
+  if (!isValidToken(token)) {
+    throw new Error('Login failed: the server did not return a valid session. Please try again.')
+  }
+  localStorage.setItem(TOKEN_KEY, token)
+  if (session.user) localStorage.setItem(USER_KEY, JSON.stringify(session.user))
+}
+
+export function getToken() {
+  const token = localStorage.getItem(TOKEN_KEY)
+  return isValidToken(token) ? token : ''
+}
+
+export function isAuthenticated() {
+  return getToken() !== ''
+}
+
+export function clearSession() {
+  localStorage.removeItem(TOKEN_KEY)
+  localStorage.removeItem(USER_KEY)
+}
+
+// On load, re-affirm a valid stored session so the app treats it as long-lived.
+// (Installing the app to the home screen keeps this from being evicted by iOS.)
+try {
+  const stored = localStorage.getItem(TOKEN_KEY)
+  if (stored && !isValidToken(stored)) localStorage.removeItem(TOKEN_KEY)
+} catch { /* storage unavailable */ }
+
 // REQUEST SECURITY INTERCEPTOR: Automatically attaches your login session key (bearer token)
 // to every query sent to the Python server, ensuring you only view your own projects.
 api.interceptors.request.use((config) => {

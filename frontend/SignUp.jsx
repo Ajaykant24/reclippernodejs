@@ -5,7 +5,7 @@
 
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { api } from './api/client'
+import { api, saveSession as persistSession } from './api/client'
 
 export default function SignUpPage() {
   const navigate = useNavigate()
@@ -24,9 +24,8 @@ export default function SignUpPage() {
     setLoading(true)
     try {
       const { data } = await api.post('/auth/signup', form)
-      // Caches details in the browser to maintain login session
-      localStorage.setItem('token', data.token)
-      localStorage.setItem('user', JSON.stringify(data.user))
+      // Safely caches the session (guards bad tokens) to maintain login.
+      persistSession(data)
       // Redirects you to the main creator workspace
       navigate('/dashboard')
     } catch (err) {
