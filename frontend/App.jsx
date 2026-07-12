@@ -15,6 +15,7 @@ import ProjectsPage from './Projects.jsx'
 import RepurposePage from './Repurpose.jsx'
 import SignInPage from './SignIn.jsx'
 import SignUpPage from './SignUp.jsx'
+import InstallPrompt from './InstallPrompt.jsx'
 
 // AUTH CHECK: A user is "logged in" only if a real session token is stored.
 // (The API client falls back to a shared 'local-user' string, which must NOT count as logged in.)
@@ -197,6 +198,9 @@ function Shell() {
           </nav>
         </div>
       ) : null}
+
+      {/* PWA install banner (hidden inside the editor so it never covers controls). */}
+      {!location.pathname.startsWith('/editor') ? <InstallPrompt /> : null}
 
     </div>
   )
