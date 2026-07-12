@@ -121,6 +121,8 @@ function withExportPreviewDefaults(body) {
     caption_style: body.caption_style ?? '1_word',
     caption_transform: body.caption_transform ?? null,
     caption_settings: body.caption_settings ?? null,
+    // Full editor state, saved back onto the clip so reopening restores every edit.
+    editor_payload: body.editor_payload ?? null,
   }
 }
 
@@ -246,11 +248,13 @@ app.post('/export/preview', asyncRoute(async (req, res) => {
   const payload = withExportPreviewDefaults(req.body || {})
   const projects = readJson(PROJECTS_FILE, [])
   let sourceFilename = null
+  let matchedClip = null
 
   for (const project of projects) {
     for (const clip of project.clips || []) {
       if (clip.clip_id === payload.clip_id) {
         sourceFilename = path.basename(clip.clip_url || '')
+        matchedClip = clip
         break
       }
     }
@@ -258,6 +262,17 @@ app.post('/export/preview', asyncRoute(async (req, res) => {
   }
 
   if (!sourceFilename) throw httpError(404, 'Clip not found in projects')
+
+  // Persist the editor's full edit state onto the clip so reopening the project
+  // restores every change (text, layout, colors, captions, logo, transforms).
+  if (matchedClip && payload.editor_payload && typeof payload.editor_payload === 'object') {
+    try {
+      matchedClip.editor_payload = payload.editor_payload
+      writeJson(PROJECTS_FILE, projects)
+    } catch (error) {
+      console.error('[export/preview] Failed to persist editor_payload (non-fatal):', error.message)
+    }
+  }
   const filePath = path.join(CLIPS_DIR, sourceFilename)
   if (!fs.existsSync(filePath) || !fs.statSync(filePath).isFile()) {
     throw httpError(404, 'Clip file no longer on server — this happens when the server restarts without a persistent disk. Add a Render disk at /var/data and re-upload your video.')

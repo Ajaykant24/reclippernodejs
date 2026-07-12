@@ -387,61 +387,66 @@ export default function Editor() {
   const location = useLocation()
   const routeState = useMemo(() => location.state || {}, [location.state])
 
+  // SAVED EDITS: when a clip was edited before, the backend stores every setting in
+  // clip.editor_payload. Each state below restores from it (falling back to defaults),
+  // so reopening a project shows the exact edited version instead of the raw generation.
+  const ep = clip?.editor_payload || {}
+
   const [tab, setTab] = useState('overlay') // Currently active customizer sidebar tab
   const [mobileSheet, setMobileSheet] = useState('mid')
   const [ratio, setRatio] = useState(() => inferClipRatio(clip, routeState))
-  const [bgType, setBgType] = useState(routeState.bgType || 'black')
-  const [bgCustomColor, setBgCustomColor] = useState(routeState.bgColor || '#111827')
-  const [blurStrength, setBlurStrength] = useState(routeState.blurOpacity !== undefined ? Math.round(routeState.blurOpacity * 100) : 42)
+  const [bgType, setBgType] = useState(ep.bgType ?? routeState.bgType ?? 'black')
+  const [bgCustomColor, setBgCustomColor] = useState(ep.bgCustomColor ?? routeState.bgColor ?? '#111827')
+  const [blurStrength, setBlurStrength] = useState(ep.blurStrength ?? (routeState.blurOpacity !== undefined ? Math.round(routeState.blurOpacity * 100) : 42))
 
   // Subtitles States
-  const [enableCaptions, setEnableCaptions] = useState(false)
-  const [captionStyle, setCaptionStyle] = useState('1_word')
-  const [captionText, setCaptionText] = useState('')
+  const [enableCaptions, setEnableCaptions] = useState(ep.enableCaptions ?? false)
+  const [captionStyle, setCaptionStyle] = useState(ep.captionStyle ?? '1_word')
+  const [captionText, setCaptionText] = useState(ep.captionText ?? '')
   const [captionCopied, setCaptionCopied] = useState(false)
-  const [captionTemplateId, setCaptionTemplateId] = useState('mc_glow')
+  const [captionTemplateId, setCaptionTemplateId] = useState(ep.captionTemplateId ?? 'mc_glow')
   const [captionSearch, setCaptionSearch] = useState('')
-  const [captionFont, setCaptionFont] = useState('Arial')
-  const [captionFontSize, setCaptionFontSize] = useState(15)
-  const [captionPrimaryColor, setCaptionPrimaryColor] = useState('#ffffff')
-  const [captionEmphasisColor, setCaptionEmphasisColor] = useState('#a0d83e')
-  const [captionSpotlightColor, setCaptionSpotlightColor] = useState('#a0d83e')
-  const [captionBox, setCaptionBox] = useState(false)
-  const [captionUppercase, setCaptionUppercase] = useState(false)
-  const [captionOffsetX, setCaptionOffsetX] = useState(0)
-  const [captionOffsetY, setCaptionOffsetY] = useState(0)
-  const [captionDragPos, setCaptionDragPos] = useState(null)
+  const [captionFont, setCaptionFont] = useState(ep.captionFont ?? 'Arial')
+  const [captionFontSize, setCaptionFontSize] = useState(ep.captionFontSize ?? 15)
+  const [captionPrimaryColor, setCaptionPrimaryColor] = useState(ep.captionPrimaryColor ?? '#ffffff')
+  const [captionEmphasisColor, setCaptionEmphasisColor] = useState(ep.captionEmphasisColor ?? '#a0d83e')
+  const [captionSpotlightColor, setCaptionSpotlightColor] = useState(ep.captionSpotlightColor ?? '#a0d83e')
+  const [captionBox, setCaptionBox] = useState(ep.captionBox ?? false)
+  const [captionUppercase, setCaptionUppercase] = useState(ep.captionUppercase ?? false)
+  const [captionOffsetX, setCaptionOffsetX] = useState(ep.captionOffsetX ?? 0)
+  const [captionOffsetY, setCaptionOffsetY] = useState(ep.captionOffsetY ?? 0)
+  const [captionDragPos, setCaptionDragPos] = useState(ep.captionDragPos ?? null)
   const [captionWords, setCaptionWords] = useState([])
   const [captionLoading, setCaptionLoading] = useState(false)
 
   // Custom text hook overlays states
-  const [customText, setCustomText] = useState(clip?.overlay_texts?.[0] || clip?.hook || '')
-  const [textHidden, setTextHidden] = useState(false)
-  const [textAlign, setTextAlign] = useState('center')
-  const [textStyle, setTextStyle] = useState('plain')
-  const [textColor, setTextColor] = useState('#ffffff')
-  const [fontSize, setFontSize] = useState(20)
-  const [textWidthPercent, setTextWidthPercent] = useState(96)
-  const [textOffsetX, setTextOffsetX] = useState(0)
-  const [textOffsetY, setTextOffsetY] = useState(0)
+  const [customText, setCustomText] = useState(ep.customText ?? clip?.overlay_texts?.[0] ?? clip?.hook ?? '')
+  const [textHidden, setTextHidden] = useState(ep.textHidden ?? false)
+  const [textAlign, setTextAlign] = useState(ep.textAlign ?? 'center')
+  const [textStyle, setTextStyle] = useState(ep.textStyle ?? 'plain')
+  const [textColor, setTextColor] = useState(ep.textColor ?? '#ffffff')
+  const [fontSize, setFontSize] = useState(ep.fontSize ?? 20)
+  const [textWidthPercent, setTextWidthPercent] = useState(ep.textWidthPercent ?? 96)
+  const [textOffsetX, setTextOffsetX] = useState(ep.textOffsetX ?? 0)
+  const [textOffsetY, setTextOffsetY] = useState(ep.textOffsetY ?? 0)
 
   // Layout transform coordinates
-  const [vtx, setVtx] = useState({ ox: 0, oy: 0, scale: 1 })
-  const [videoDragPos, setVideoDragPos] = useState(null)
-  const [textDragPos, setTextDragPos] = useState(null)
+  const [vtx, setVtx] = useState(ep.vtx ?? { ox: 0, oy: 0, scale: 1 })
+  const [videoDragPos, setVideoDragPos] = useState(ep.videoDragPos ?? null)
+  const [textDragPos, setTextDragPos] = useState(ep.textDragPos ?? null)
   const [snapLines, setSnapLines] = useState({ h: false, v: false }) // Alignment snapped guidelines trigger
 
   // Custom logo states
-  const [logo, setLogo] = useState(null)
-  const [logoScale, setLogoScale] = useState(1)
-  const [logoX, setLogoX] = useState(0)
-  const [logoY, setLogoY] = useState(0)
+  const [logo, setLogo] = useState(ep.logo ?? null)
+  const [logoScale, setLogoScale] = useState(ep.logoScale ?? 1)
+  const [logoX, setLogoX] = useState(ep.logoX ?? 0)
+  const [logoY, setLogoY] = useState(ep.logoY ?? 0)
 
   // Playback control states
   const [playing, setPlaying] = useState(false)
   const [duration, setDuration] = useState(0)
   const [currentTime, setCurrentTime] = useState(0)
-  const [volume, setVolume] = useState(1)
+  const [volume, setVolume] = useState(ep.volume ?? 1)
   const [exporting, setExporting] = useState(false)
   const [videoReady, setVideoReady] = useState(false)
   const [foregroundPlaying, setForegroundPlaying] = useState(false)
@@ -674,12 +679,44 @@ export default function Editor() {
   useEffect(() => {
     const nextState = buildEditorState(clipId)
     setEditorState(nextState)
+    // Restore every saved edit from the clip's editor_payload (falls back to defaults
+    // / the raw generation when a clip has never been edited).
+    const nep = nextState.clip?.editor_payload || {}
     setRatio(inferClipRatio(nextState.clip, routeState))
-    setVtx({ ox: 0, oy: 0, scale: 1 })
-    setTextDragPos(null)
-    setVideoDragPos(null)
-    setCustomText(nextState.clip?.overlay_texts?.[0] || nextState.clip?.hook || '')
-    setCaptionText(nextState.clip?.clip_caption || '')
+    setBgType(nep.bgType ?? routeState.bgType ?? nextState.clip?.background_type ?? 'black')
+    setBgCustomColor(nep.bgCustomColor ?? routeState.bgColor ?? nextState.clip?.background_color ?? '#111827')
+    setBlurStrength(nep.blurStrength ?? (routeState.blurOpacity !== undefined ? Math.round(routeState.blurOpacity * 100) : 42))
+    setVtx(nep.vtx ?? { ox: 0, oy: 0, scale: 1 })
+    setTextDragPos(nep.textDragPos ?? null)
+    setVideoDragPos(nep.videoDragPos ?? null)
+    setCustomText(nep.customText ?? nextState.clip?.overlay_texts?.[0] ?? nextState.clip?.hook ?? '')
+    setTextHidden(nep.textHidden ?? false)
+    setTextAlign(nep.textAlign ?? 'center')
+    setTextStyle(nep.textStyle ?? 'plain')
+    setTextColor(nep.textColor ?? '#ffffff')
+    setFontSize(nep.fontSize ?? 20)
+    setTextWidthPercent(nep.textWidthPercent ?? 96)
+    setTextOffsetX(nep.textOffsetX ?? 0)
+    setTextOffsetY(nep.textOffsetY ?? 0)
+    setVolume(nep.volume ?? 1)
+    setLogo(nep.logo ?? null)
+    setLogoScale(nep.logoScale ?? 1)
+    setLogoX(nep.logoX ?? 0)
+    setLogoY(nep.logoY ?? 0)
+    setEnableCaptions(nep.enableCaptions ?? false)
+    setCaptionStyle(nep.captionStyle ?? '1_word')
+    setCaptionTemplateId(nep.captionTemplateId ?? 'mc_glow')
+    setCaptionFont(nep.captionFont ?? 'Arial')
+    setCaptionFontSize(nep.captionFontSize ?? 15)
+    setCaptionPrimaryColor(nep.captionPrimaryColor ?? '#ffffff')
+    setCaptionEmphasisColor(nep.captionEmphasisColor ?? '#a0d83e')
+    setCaptionSpotlightColor(nep.captionSpotlightColor ?? '#a0d83e')
+    setCaptionBox(nep.captionBox ?? false)
+    setCaptionUppercase(nep.captionUppercase ?? false)
+    setCaptionOffsetX(nep.captionOffsetX ?? 0)
+    setCaptionOffsetY(nep.captionOffsetY ?? 0)
+    setCaptionDragPos(nep.captionDragPos ?? null)
+    setCaptionText(nep.captionText ?? nextState.clip?.clip_caption ?? '')
     setPlaying(false)
     setCurrentTime(0)
     setVideoReady(false)
@@ -1085,6 +1122,45 @@ export default function Editor() {
         logoSize: logoSize,
       })
 
+      // Full editor state saved onto the clip so reopening restores every edit.
+      const editorPayloadData = {
+        ratio,
+        bgType,
+        bgCustomColor,
+        blurStrength,
+        customText,
+        textHidden,
+        textAlign,
+        textStyle,
+        textColor,
+        fontSize,
+        textWidthPercent,
+        textOffsetX,
+        textOffsetY,
+        vtx,
+        videoDragPos,
+        textDragPos,
+        logo: typeof logo === 'string' ? logo : null,
+        logoScale,
+        logoX,
+        logoY,
+        volume,
+        enableCaptions,
+        captionStyle,
+        captionText,
+        captionTemplateId,
+        captionFont,
+        captionFontSize,
+        captionPrimaryColor,
+        captionEmphasisColor,
+        captionSpotlightColor,
+        captionBox,
+        captionUppercase,
+        captionOffsetX,
+        captionOffsetY,
+        captionDragPos,
+      }
+
       // Sends completed details to Python server `/export/preview`
       const response = await api.post(
         '/export/preview',
@@ -1118,8 +1194,26 @@ export default function Editor() {
             box: captionBox,
             uppercase: captionUppercase,
           },
+          editor_payload: editorPayloadData,
         },
       )
+
+      // Keep localStorage in sync so reopening the clip in the same session (before
+      // Projects refetches) also shows the saved edits.
+      try {
+        const thisClipId = getClipIdValue(clip)
+        const storedClip = JSON.parse(localStorage.getItem('editClip') || 'null')
+        if (storedClip && getClipIdValue(storedClip) === thisClipId) {
+          localStorage.setItem('editClip', JSON.stringify({ ...storedClip, editor_payload: editorPayloadData }))
+        }
+        const storedList = JSON.parse(localStorage.getItem('editClipList') || '[]')
+        if (Array.isArray(storedList)) {
+          const nextList = storedList.map(item =>
+            getClipIdValue(item) === thisClipId ? { ...item, editor_payload: editorPayloadData } : item,
+          )
+          localStorage.setItem('editClipList', JSON.stringify(nextList))
+        }
+      } catch {}
 
       // Successfully rendered! Navigates to ExportPage view
       const exportedUrl = resolveUrl(response.data.url)
