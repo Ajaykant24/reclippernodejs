@@ -62,13 +62,21 @@ async function runPipeline(
     const probe = await probeVideo(videoPath)
     if (!probe.success) throw new Error(`Video probe failed: ${probe.error}`)
 
+    const normalizedRatio = String(outputRatio || 'original').trim().toLowerCase()
+    const useOriginal = ['', 'original', 'source', 'actual'].includes(normalizedRatio)
+
+    // Kick off the AI (Whisper/Gemini) on the ORIGINAL uploaded video NOW so its
+    // network latency overlaps the crop/compose/freshen encodes instead of being
+    // added on top of them. It has no dependency on the encoded outputs and is
+    // awaited later, right before the clip is assembled. The no-op catch prevents
+    // an unhandled-rejection warning; real error handling happens at the await.
+    const aiPromise = runGeminiPipeline(videoPath, intensity, normalizedRatio, 'relatable', overlayMode, originalOverlay)
+    aiPromise.catch(() => {})
+
     update(jobId, { status: 'smart_cropping', progress: 15 })
     const smartCropPath = path.join(workDir, 'smart_crop.mp4')
     const cropResult = await detectAndCrop(videoPath, smartCropPath, probe)
     if (!cropResult.success) throw new Error(`Smart crop failed: ${cropResult.error}`)
-
-    const normalizedRatio = String(outputRatio || 'original').trim().toLowerCase()
-    const useOriginal = ['', 'original', 'source', 'actual'].includes(normalizedRatio)
     const sourceW = Number.parseInt(probe.width || 0, 10)
     const sourceH = Number.parseInt(probe.height || 0, 10)
     const cropW = Number.parseInt(cropResult.crop_w || sourceW, 10)
@@ -95,10 +103,6 @@ async function runPipeline(
     }
 
     update(jobId, { status: 'generating_ai', progress: 55 })
-    // Use original uploaded video for transcription (has clean audio, not processing artifact)
-    const ai = await runGeminiPipeline(videoPath, intensity, normalizedRatio, 'relatable', overlayMode, originalOverlay)
-    const overlays = ai.overlays
-    const caption = ai.caption
 
     const {
       CLIPS_DIR,
@@ -114,6 +118,12 @@ async function runPipeline(
       console.warn('[repurpose_v2] freshenVideo failed, using unfreshened:', freshenResult.error)
     }
     const sourceForFinal = (freshenResult.success && fs.existsSync(freshenedPath)) ? freshenedPath : workingVideoPath
+
+    // The AI was started at the top and ran concurrently with the encode passes;
+    // collect its result now (resolves instantly if it already finished).
+    const ai = await aiPromise
+    const overlays = ai.overlays
+    const caption = ai.caption
 
     update(jobId, { status: 'finalizing', progress: 93 })
     const finalFilename = `repurposed_v2_${jobId}.mp4`

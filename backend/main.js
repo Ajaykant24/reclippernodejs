@@ -356,13 +356,21 @@ app.post('/export/preview', asyncRoute(async (req, res) => {
     '-map', '0:a?',
   ]
 
-  if (payload.volume != null && payload.volume !== 1.0) {
+  // Only touch the audio when volume actually changes. Otherwise stream-copy it
+  // (the clip's audio is already aac from creation) — skips a redundant re-encode
+  // and makes most exports noticeably faster.
+  const changesAudio = payload.volume != null && payload.volume !== 1.0
+  if (changesAudio) {
     args.push('-filter:a', `volume=${payload.volume}`)
   }
 
+  args.push('-c:v', 'libx264', '-preset', 'veryfast', '-crf', '22')
+  if (changesAudio) {
+    args.push('-c:a', 'aac', '-b:a', '128k')
+  } else {
+    args.push('-c:a', 'copy')
+  }
   args.push(
-    '-c:v', 'libx264', '-preset', 'veryfast', '-crf', '22',
-    '-c:a', 'aac', '-b:a', '128k',
     '-pix_fmt', 'yuv420p',
     '-movflags', '+faststart',
     outPath,
