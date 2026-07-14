@@ -36,15 +36,9 @@ const BACKGROUND_SWATCHES = [
 ]
 
 // ── ASPECT CROP PRESETS ──
-// - Maps ratio labels shown on the Create page. Values match the backend RATIO_DIMS.
+// Always 'original' so smart crop's output is used as-is (never letterboxed onto
+// a canvas). Ratio can still be changed inside the editor if a user wants.
 const DEFAULT_RATIO = 'original'
-const RATIO_OPTS = [
-  { id: 'original', label: 'Original', hint: 'Keep source' },
-  { id: '9:16', label: '9:16', hint: 'Reels / TikTok' },
-  { id: '4:5', label: '4:5', hint: 'Feed portrait' },
-  { id: '1:1', label: '1:1', hint: 'Square' },
-  { id: '16:9', label: '16:9', hint: 'YouTube' },
-]
 
 // ── INTENSITY MODIFIERS ──
 // - Determines how copyright-safe / heavily formatted the smart crop is.
@@ -83,7 +77,7 @@ export default function RepurposePage() {
   const [blurOpacity, setBlurOpacity] = useState(0.5)
   const [overlayMode, setOverlayMode] = useState('generated')
   const [originalOverlay, setOriginalOverlay] = useState('')
-  const [ratio, setRatio] = useState(DEFAULT_RATIO)
+  const ratio = DEFAULT_RATIO
   const intensity = DEFAULT_INTENSITY
 
   // ── WORKFLOW LOGIC ──
@@ -409,24 +403,6 @@ export default function RepurposePage() {
 
         {/* Main configuration panels block */}
         <div style={darkCard({ padding: 28 })}>
-
-          {/* 0. ASPECT RATIO SELECT BLOCK */}
-          <div style={{ marginBottom: 28 }}>
-            <div style={sectionLabel}>Aspect Ratio</div>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(96px, 1fr))', gap: 8 }}>
-              {RATIO_OPTS.map(o => (
-                <button
-                  key={o.id}
-                  type="button"
-                  onClick={() => setRatio(o.id)}
-                  style={optBtn(ratio === o.id, { flexDirection: 'column', alignItems: 'flex-start', gap: 2 })}
-                >
-                  <span style={{ fontWeight: 700, fontSize: 14 }}>{o.label}</span>
-                  <span style={{ fontSize: 11, fontWeight: 500, opacity: 0.7 }}>{o.hint}</span>
-                </button>
-              ))}
-            </div>
-          </div>
 
           {/* 1. BACKGROUND SELECT BLOCK */}
           <div style={{ marginBottom: 28 }}>
