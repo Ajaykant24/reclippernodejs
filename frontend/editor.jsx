@@ -227,6 +227,39 @@ function getExactCropRatio(clip) {
   return { w: 3, h: 2 }
 }
 
+// Per-clip local cache of editor edits. Lets edits survive export -> back to
+// Projects -> reopen on the SAME device even before the backend (which stores
+// editor_payload on the clip) is rebuilt. Server editor_payload always wins.
+function editsCacheKey(clipId) {
+  return `rc_edits_${clipId}`
+}
+
+function loadCachedEdits(clipId) {
+  if (!clipId || typeof localStorage === 'undefined') return null
+  try {
+    const raw = localStorage.getItem(editsCacheKey(clipId))
+    return raw ? JSON.parse(raw) : null
+  } catch {
+    return null
+  }
+}
+
+function saveCachedEdits(clipId, payload) {
+  if (!clipId || typeof localStorage === 'undefined') return
+  try {
+    localStorage.setItem(editsCacheKey(clipId), JSON.stringify(payload))
+  } catch { /* storage full/unavailable */ }
+}
+
+// Attaches locally-cached edits as clip.editor_payload when the clip has none
+// from the server, so the existing restore logic works unchanged.
+function withCachedEdits(clip) {
+  if (!clip) return clip
+  if (clip.editor_payload) return clip
+  const cached = loadCachedEdits(getClipIdValue(clip))
+  return cached ? { ...clip, editor_payload: cached } : clip
+}
+
 function buildEditorState(targetClipId) {
   const storedClip = readStoredJson('editClip')
   const storedClipList = readStoredJson('editClipList', [])
@@ -240,6 +273,8 @@ function buildEditorState(targetClipId) {
   }
   if (!clip && storedClip) clip = storedClip
   if (!clip && clipList.length) clip = clipList[0]
+
+  clip = withCachedEdits(clip)
 
   const clipId = getClipIdValue(clip)
   const clipIndex = clipId ? clipList.findIndex(item => getClipIdValue(item) === clipId) : -1
@@ -1286,6 +1321,8 @@ export default function Editor() {
       // Projects refetches) also shows the saved edits.
       try {
         const thisClipId = getClipIdValue(clip)
+        // Per-clip cache: survives Projects refetch + reopen even without the backend.
+        saveCachedEdits(thisClipId, editorPayloadData)
         const storedClip = JSON.parse(localStorage.getItem('editClip') || 'null')
         if (storedClip && getClipIdValue(storedClip) === thisClipId) {
           localStorage.setItem('editClip', JSON.stringify({ ...storedClip, editor_payload: editorPayloadData }))

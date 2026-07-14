@@ -194,11 +194,26 @@ function getPreviewBox(clip) {
   }
 }
 
+// Reads per-clip edits cached by the editor (localStorage), so the card reflects
+// edits even before the backend persists editor_payload on the clip.
+function cachedClipEdits(clip) {
+  const id = clip?.clip_id
+  if (!id || typeof localStorage === 'undefined') return null
+  try {
+    const raw = localStorage.getItem(`rc_edits_${id}`)
+    return raw ? JSON.parse(raw) : null
+  } catch {
+    return null
+  }
+}
+
 function buildRepurposePreview(clip) {
   // Purpose: Packages the overlay layout using the SAME math as the editor's default (un-dragged)
   // view, so the card preview matches editor.jsx exactly: cleaned text, pixel-accurate wrapping,
   // fixed font size, and text anchored just above the video box.
-  const rawText = clip?.editor_payload?.custom_text
+  const edits = clip?.editor_payload || cachedClipEdits(clip) || {}
+  const rawText = edits.custom_text
+    ?? edits.customText
     ?? clip?.custom_text
     ?? clip?.overlay_texts?.[0]
     ?? clip?.hook
