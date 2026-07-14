@@ -16,12 +16,22 @@ import RepurposePage from './Repurpose.jsx'
 import SignInPage from './SignIn.jsx'
 import SignUpPage from './SignUp.jsx'
 import InstallPrompt from './InstallPrompt.jsx'
+import AdminPage from './Admin.jsx'
 
 // AUTH CHECK: A user is "logged in" only if a real session token is stored.
 // (The API client falls back to a shared 'local-user' string, which must NOT count as logged in.)
 function isAuthenticated() {
   const token = (localStorage.getItem('token') || '').trim()
   return token !== '' && token !== 'local-user'
+}
+
+// ADMIN CHECK: the stored user's role is 'admin' (set by the server at login).
+function isAdmin() {
+  try {
+    return JSON.parse(localStorage.getItem('user') || '{}')?.role === 'admin'
+  } catch {
+    return false
+  }
 }
 
 // ROUTE GUARD: Wraps workspace pages so logged-out visitors are sent to sign up
@@ -31,6 +41,13 @@ function RequireAuth({ children }) {
   if (!isAuthenticated()) {
     return <Navigate to="/signup" replace state={{ from: location.pathname }} />
   }
+  return children
+}
+
+// ADMIN ROUTE GUARD: logged in AND an admin, otherwise bounce to the dashboard.
+function RequireAdmin({ children }) {
+  if (!isAuthenticated()) return <Navigate to="/signup" replace />
+  if (!isAdmin()) return <Navigate to="/dashboard" replace />
   return children
 }
 
@@ -54,6 +71,7 @@ const routeTitles = {
   '/repurpose': 'Create clip',
   '/projects': 'Projects',
   '/studio': 'Create clip',
+  '/admin': 'Admin',
 }
 
 function Shell() {
@@ -71,6 +89,11 @@ function Shell() {
   
   // SESSION USER: Retrieves current logged-in user profile details from the browser cache.
   const user = JSON.parse(localStorage.getItem('user') || '{}')
+
+  // NAV ITEMS: append the Admin tab only for admin accounts.
+  const navItems = user?.role === 'admin'
+    ? [...workspaceNavItems, { to: '/admin', icon: 'admin_panel_settings', label: 'Admin' }]
+    : workspaceNavItems
 
   // SESSION DESTRUCTION: Clears your session key and returns you to the landing page.
   const logout = () => {
@@ -125,7 +148,7 @@ function Shell() {
             - Icons are loaded from Google's Material symbols.
           */}
           <nav className="app-nav">
-            {workspaceNavItems.map(item => (
+            {navItems.map(item => (
               <NavLink key={item.to} to={item.to}>
                 <span className="material-symbols-outlined">{item.icon}</span>
                 <span>{item.label}</span>
@@ -175,6 +198,9 @@ function Shell() {
           <Route path="/repurpose" element={<RequireAuth><RepurposePage /></RequireAuth>} />
           <Route path="/projects" element={<RequireAuth><ProjectsPage /></RequireAuth>} />
 
+          {/* ADMIN — approve/reject signups (admin accounts only) */}
+          <Route path="/admin" element={<RequireAdmin><AdminPage /></RequireAdmin>} />
+
           {/* DYNAMIC EDITOR URL ROUTES: Matches specific clip and project IDs. */}
           <Route path="/editor/:clipId" element={<RequireAuth><Editor /></RequireAuth>} />
           <Route path="/editor/:projectId/:clipId" element={<RequireAuth><Editor /></RequireAuth>} />
@@ -189,7 +215,7 @@ function Shell() {
       {!isPublicRoute ? (
         <div className="app-bottom-nav">
           <nav>
-            {workspaceNavItems.map(item => (
+            {navItems.map(item => (
               <NavLink key={`bottom-${item.to}`} to={item.to}>
                 <span className="material-symbols-outlined">{item.icon}</span>
                 <span>{item.label}</span>

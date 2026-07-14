@@ -19,6 +19,7 @@ services:
       - GEMINI_API_KEY=${GEMINI_API_KEY}
       - GEMINI_MODEL=${GEMINI_MODEL:-gemini-2.0-flash}
       - CORS_ORIGINS=${CORS_ORIGINS}
+      - ADMIN_EMAILS=${ADMIN_EMAILS:-kantajay381@gmail.com}
     volumes:
       - reclipper-data:/var/data
     expose:

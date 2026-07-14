@@ -54,6 +54,24 @@ function passwordHash(password) {
   return crypto.createHash('sha256').update(password, 'utf8').digest('hex')
 }
 
+// Admin owners — comma-separated emails in ADMIN_EMAILS. These accounts can access
+// the admin panel and approve/reject signups, and are always auto-approved.
+const ADMIN_EMAILS = String(process.env.ADMIN_EMAILS || 'kantajay381@gmail.com')
+  .split(',')
+  .map(email => email.trim().toLowerCase())
+  .filter(Boolean)
+
+function isAdminEmail(email) {
+  return ADMIN_EMAILS.includes(String(email || '').trim().toLowerCase())
+}
+
+// Missing status = grandfathered (approved) so existing accounts keep working.
+function userStatus(user) {
+  if (!user) return 'pending'
+  if (isAdminEmail(user.email)) return 'approved'
+  return user.status || 'approved'
+}
+
 function sessionFor(user) {
   return {
     token: user.id,
@@ -62,8 +80,21 @@ function sessionFor(user) {
       email: user.email,
       name: user.name || user.email.split('@', 1)[0],
       plan: user.plan || 'Pro',
+      role: isAdminEmail(user.email) ? 'admin' : 'user',
+      status: userStatus(user),
     },
   }
+}
+
+// Resolve the requesting user's account from the bearer token (= user id).
+function requireAdmin(authorization) {
+  const { user_id: userId } = getCurrentUserFromToken(authorization)
+  const users = readJson(USERS_FILE, [])
+  const account = users.find(candidate => candidate.id === userId)
+  if (!account || !isAdminEmail(account.email)) {
+    throw httpError(403, 'Admin access required.')
+  }
+  return account
 }
 
 function uuidHex(length) {
@@ -164,16 +195,26 @@ app.post('/auth/signup', asyncRoute(async (req, res) => {
   if (users.some(user => user.email === email)) {
     throw httpError(409, 'An account already exists for this email.')
   }
+  const approved = isAdminEmail(email)
   const user = {
     id: `user_${uuidHex(10)}`,
     email,
     name: String(req.body.name || '').trim() || email.split('@', 1)[0],
     password_hash: passwordHash(String(req.body.password || '')),
     plan: 'Pro',
+    status: approved ? 'approved' : 'pending',
+    created_at: new Date().toISOString(),
   }
   users.push(user)
   writeJson(USERS_FILE, users)
-  res.json(sessionFor(user))
+
+  // Approved (admin) accounts get a session immediately. Everyone else is pending
+  // until an admin approves them — no token, so they can't enter the tool yet.
+  if (approved) {
+    res.json(sessionFor(user))
+  } else {
+    res.json({ pending: true, message: 'Account created! An admin will review and approve it shortly.' })
+  }
 }))
 
 app.post('/auth/signin', asyncRoute(async (req, res) => {
@@ -184,6 +225,15 @@ app.post('/auth/signin', asyncRoute(async (req, res) => {
     && candidate.password_hash === passwordHash(String(req.body.password || ''))
   ))
   if (!user) throw httpError(401, 'Invalid email or password.')
+
+  // Gate unapproved accounts (grandfathered accounts with no status count as approved;
+  // admin emails are always allowed).
+  const status = userStatus(user)
+  if (status !== 'approved') {
+    throw httpError(403, status === 'rejected'
+      ? 'Your account access has been declined. Please contact the admin.'
+      : 'Your account is awaiting admin approval. You\'ll be able to sign in once approved.')
+  }
   res.json(sessionFor(user))
 }))
 
@@ -195,6 +245,41 @@ app.post('/auth/demo', (req, res) => {
     plan: 'Scale',
   }))
 })
+
+// ── ADMIN: user management (approve/reject signups) ──
+// All routes require the caller to be an admin (email in ADMIN_EMAILS).
+
+app.get('/admin/users', asyncRoute(async (req, res) => {
+  requireAdmin(req.get('authorization'))
+  const users = readJson(USERS_FILE, [])
+  const list = users.map(user => ({
+    id: user.id,
+    email: user.email,
+    name: user.name || user.email.split('@', 1)[0],
+    status: userStatus(user),
+    role: isAdminEmail(user.email) ? 'admin' : 'user',
+    created_at: user.created_at || null,
+  }))
+  // Pending first, then newest.
+  const rank = { pending: 0, rejected: 1, approved: 2 }
+  list.sort((a, b) => (rank[a.status] - rank[b.status]) || String(b.created_at || '').localeCompare(String(a.created_at || '')))
+  res.json({ users: list })
+}))
+
+function setUserStatus(req, res, nextStatus) {
+  requireAdmin(req.get('authorization'))
+  const targetId = req.params.id
+  const users = readJson(USERS_FILE, [])
+  const target = users.find(user => user.id === targetId)
+  if (!target) throw httpError(404, 'User not found.')
+  if (isAdminEmail(target.email)) throw httpError(400, 'Admin accounts cannot be changed.')
+  target.status = nextStatus
+  writeJson(USERS_FILE, users)
+  res.json({ ok: true, id: targetId, status: nextStatus })
+}
+
+app.post('/admin/users/:id/approve', asyncRoute(async (req, res) => setUserStatus(req, res, 'approved')))
+app.post('/admin/users/:id/reject', asyncRoute(async (req, res) => setUserStatus(req, res, 'rejected')))
 
 app.get('/projects', (req, res) => {
   const user = getCurrentUserFromToken(req.get('authorization'))

@@ -14,6 +14,7 @@ export default function SignUpPage() {
   const [form, setForm] = useState({ name: '', email: '', password: '' })
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+  const [pending, setPending] = useState('')
 
   // REGISTRATION SUBMIT WORKFLOW:
   // - Triggers when you click "Create Account".
@@ -24,6 +25,12 @@ export default function SignUpPage() {
     setLoading(true)
     try {
       const { data } = await api.post('/auth/signup', form)
+      // New accounts are pending admin approval — no session is returned; show a
+      // waiting message instead of entering the tool. (Admin accounts get a token.)
+      if (data?.pending || !data?.token) {
+        setPending(data?.message || 'Account created! An admin will review and approve it shortly.')
+        return
+      }
       // Safely caches the session (guards bad tokens) to maintain login.
       persistSession(data)
       // Redirects you to the main creator workspace
@@ -49,6 +56,23 @@ export default function SignUpPage() {
         - Styled by .auth-card in index.css (glass borders, box shadows).
       */}
       <section className="auth-card mobile-auth-card">
+        {pending ? (
+          <>
+            <span className="eyebrow">Almost there</span>
+            <h1>Request received</h1>
+            <div style={{
+              display: 'flex', alignItems: 'flex-start', gap: 10, margin: '4px 0 8px',
+              padding: '14px 16px', borderRadius: 12,
+              background: 'rgba(45, 212, 191, 0.1)', border: '1px solid rgba(45, 212, 191, 0.3)',
+            }}>
+              <span className="material-symbols-outlined" style={{ color: 'var(--teal)', fontSize: 22 }}>hourglass_top</span>
+              <span style={{ fontSize: 14, lineHeight: 1.5, color: 'var(--text-primary)' }}>{pending}</span>
+            </div>
+            <p>You'll be able to sign in as soon as an admin approves your account.</p>
+            <Link className="btn btn-solid-white btn-lg" to="/signin">Go to Sign in</Link>
+          </>
+        ) : (
+        <>
         <span className="eyebrow">Start the studio</span>
         <h1>Create your account</h1>
         <p>Launch a polished short-form workflow with projects, AI overlays, captions, editor controls, and export review.</p>
@@ -107,6 +131,8 @@ export default function SignUpPage() {
         <p className="auth-switch">
           Already have an account? <Link to="/signin">Sign in</Link>
         </p>
+        </>
+        )}
 
       </section>
     </div>
