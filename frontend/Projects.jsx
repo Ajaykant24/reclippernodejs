@@ -22,7 +22,7 @@ const DEFAULT_CROP_RATIO = 'original'
 //    editor preview lay out overlay text identically. ──
 const PREVIEW_VERTICAL_SHIFT = 39     // Vertical adjustment pixels to position the video inside the frame
 const EXACT_CROP_VERTICAL_SHIFT = 34  // Vertical shift used for the "Exact" (original) ratio
-const VIDEO_SIDE_MARGIN_RATIO = 0.05  // Left/right margin the video box keeps inside the stage
+const VIDEO_SIDE_MARGIN_RATIO = 0.07  // Left/right margin the video box keeps inside the stage (must match editor.jsx)
 const TEXT_VIDEO_GAP = 14             // Distance in pixels between the text overlay box and the video card
 const OVERLAY_FONT_SIZE = 20          // Editor default font size (renderedFontSize) for overlay text
 const OVERLAY_TEXT_WIDTH_PERCENT = 96 // Editor default text width as a % of the video width
@@ -226,6 +226,7 @@ function buildRepurposePreview(clip) {
     ?? ''
   const text = cleanOverlayText(rawText)
   const videoBox = getPreviewBox(clip)
+  const align = edits.textAlign ?? edits.text_align ?? clip?.text_align ?? 'left'
 
   const renderedFontSize = clamp(OVERLAY_FONT_SIZE, 14, 64)
   const textWidthRatio = clamp(OVERLAY_TEXT_WIDTH_PERCENT, 55, 96) / 100
@@ -238,7 +239,15 @@ function buildRepurposePreview(clip) {
     ? lines.length * lineH + Math.max(0, lines.length - 1) * lineGap
     : lineH
 
-  const defaultTextX = videoBox.l + videoBox.w / 2 - textW / 2
+  // Anchor the block per alignment (mirrors editor.jsx): flush with the video's
+  // left edge, centered, or flush with the video's right edge. The block width
+  // is already capped to the video's width above, so it's never wider than (or
+  // positioned outside) the cropped video regardless of alignment.
+  const defaultTextX = align === 'left'
+    ? videoBox.l
+    : align === 'right'
+      ? videoBox.l + videoBox.w - textW
+      : videoBox.l + videoBox.w / 2 - textW / 2
   const defaultTextY = videoBox.t - TEXT_VIDEO_GAP - textH
   const textBox = {
     x: clamp(defaultTextX, 12, STAGE_W - textW - 12),
@@ -246,10 +255,10 @@ function buildRepurposePreview(clip) {
     w: textW,
   }
 
-  return { text, lines, videoBox, textBox, fontSize: renderedFontSize }
+  return { text, lines, videoBox, textBox, fontSize: renderedFontSize, align }
 }
 
-function makeOverlayImage({ lines, textBox, fontSize, textColor = '#ffffff' }) {
+function makeOverlayImage({ lines, textBox, fontSize, textColor = '#ffffff', align = 'left' }) {
   // Purpose: Pure wizardry! Draws text hook overlays onto an invisible HTML5 canvas element inside the browser,
   // converts that canvas to a transparent PNG base64 string, and passes it to the Python server.
   // This ensures the exported video titles match the font spacing, line breaks, and positions you see on screen perfectly.
@@ -270,12 +279,17 @@ function makeOverlayImage({ lines, textBox, fontSize, textColor = '#ffffff' }) {
   // Font styling configuration
   ctx.font = `400 ${exportFontSize}px ${OVERLAY_FONT_STACK}`
   ctx.textBaseline = 'top'
-  ctx.textAlign = 'center'
+  ctx.textAlign = align
   ctx.fillStyle = textColor
 
   const lineHeight = exportFontSize * 1.25
   const gap = Math.round(exportFontSize * 0.18)
-  const x = exportBox.x + exportBox.w / 2
+  const x =
+    align === 'left'
+      ? exportBox.x
+      : align === 'right'
+        ? exportBox.x + exportBox.w
+        : exportBox.x + exportBox.w / 2
   lines.forEach((line, index) => {
     ctx.fillText(line, x, exportBox.y + index * (lineHeight + gap))
   })
@@ -674,6 +688,7 @@ function RepurposeProjectCard({ project, onEdit, onDelete, selectable = false, s
     textBox: preview.textBox,
     fontSize: preview.fontSize,
     textColor,
+    align: preview.align,
   }), [preview, textColor, fontReady])
 
   // Triggers immediate download of the clip. Calls FastAPI overlay builder `/export/preview`
@@ -693,7 +708,7 @@ function RepurposeProjectCard({ project, onEdit, onDelete, selectable = false, s
           blur_strength: Math.round(Number(clip.blur_opacity ?? 0.5) * 100),
           custom_text: preview.text,
           text_hidden: false,
-          text_align: 'center',
+          text_align: preview.align,
           text_style: 'plain',
           text_color: '#ffffff',
           font_size: preview.fontSize,

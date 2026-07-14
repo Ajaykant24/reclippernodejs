@@ -23,7 +23,7 @@ const DEFAULT_WORDS_PER_LINE = 4
 const TEXT_VIDEO_GAP = 14
 const SUBTITLE_VIDEO_GAP = 10
 const EXACT_CROP_VERTICAL_SHIFT = 34
-const VIDEO_SIDE_MARGIN_RATIO = 0.05
+const VIDEO_SIDE_MARGIN_RATIO = 0.07
 
 // Overlay-text font stack. The bundled "SFProDisplayWeb" (see @font-face in
 // index.css) is listed first so overlay text looks identical on every device,
@@ -498,7 +498,7 @@ export default function Editor() {
   // Custom text hook overlays states
   const [customText, setCustomText] = useState(ep.customText ?? clip?.overlay_texts?.[0] ?? clip?.hook ?? '')
   const [textHidden, setTextHidden] = useState(ep.textHidden ?? false)
-  const [textAlign, setTextAlign] = useState(ep.textAlign ?? 'center')
+  const [textAlign, setTextAlign] = useState(ep.textAlign ?? clip?.text_align ?? 'left')
   const [textStyle, setTextStyle] = useState(ep.textStyle ?? 'plain')
   const [textColor, setTextColor] = useState(ep.textColor ?? '#ffffff')
   const [fontSize, setFontSize] = useState(ep.fontSize ?? 20)
@@ -631,7 +631,15 @@ export default function Editor() {
   // Coordinates calculators for title overlays
   // Overlay stays reference-anchored to the cropped video top.
   // More lines grow upward, so line 2/3 never cover the video.
-  const defaultTextX = videoLeft + videoWidth / 2 - textBlockW / 2
+  // The text block's horizontal anchor follows the chosen alignment: flush with
+  // the video's left edge, centered, or flush with the video's right edge. The
+  // block width is already capped to the video's width above, so it's never
+  // wider than (or positioned outside) the cropped video regardless of align.
+  const defaultTextX = textAlign === 'left'
+    ? videoLeft
+    : textAlign === 'right'
+      ? videoLeft + videoWidth - textBlockW
+      : videoLeft + videoWidth / 2 - textBlockW / 2
   const defaultTextY = videoTop - TEXT_VIDEO_GAP - textBlockHeight
   const baseTextX = textDragPos ? textDragPos.x : defaultTextX
   const baseTextY = textDragPos ? textDragPos.y : defaultTextY
@@ -815,7 +823,7 @@ export default function Editor() {
     setVideoDragPos(nep.videoDragPos ?? null)
     setCustomText(nep.customText ?? nextState.clip?.overlay_texts?.[0] ?? nextState.clip?.hook ?? '')
     setTextHidden(nep.textHidden ?? false)
-    setTextAlign(nep.textAlign ?? 'center')
+    setTextAlign(nep.textAlign ?? nextState.clip?.text_align ?? 'left')
     setTextStyle(nep.textStyle ?? 'plain')
     setTextColor(nep.textColor ?? '#ffffff')
     setFontSize(nep.fontSize ?? 20)

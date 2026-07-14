@@ -77,6 +77,7 @@ export default function RepurposePage() {
   const [blurOpacity, setBlurOpacity] = useState(0.5)
   const [overlayMode, setOverlayMode] = useState('generated')
   const [originalOverlay, setOriginalOverlay] = useState('')
+  const [textAlign, setTextAlign] = useState('left')
   const ratio = DEFAULT_RATIO
   const intensity = DEFAULT_INTENSITY
 
@@ -104,6 +105,7 @@ export default function RepurposePage() {
     fd.append('intensity', intensity)
     fd.append('overlay_mode', overlayMode)
     fd.append('original_overlay', originalOverlay.trim())
+    fd.append('text_align', textAlign)
     
     try {
       // Calls V2 backend endpoint
@@ -514,10 +516,31 @@ export default function RepurposePage() {
                 fontFamily: 'inherit', lineHeight: 1.5,
               }}
             />
-            <div style={{ fontSize: 12, color: D.textMuted, paddingTop: 6 }}>
+            <div style={{ fontSize: 12, color: D.textMuted, paddingTop: 6, marginBottom: 14 }}>
               {originalOverlay.trim()
                 ? 'Your text will be applied to the video. AI overlays are also available in the editor.'
                 : 'AI will pick the most relatable hook from the generated overlays as default.'}
+            </div>
+
+            {/* Overlay text alignment — applies to the generated clip; can still be changed later in the editor. */}
+            <div style={{ fontSize: 11, fontWeight: 700, color: D.textMuted, marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+              Text Alignment
+            </div>
+            <div style={{ display: 'flex', gap: 8 }}>
+              {[
+                { id: 'left', icon: 'format_align_left' },
+                { id: 'center', icon: 'format_align_center' },
+                { id: 'right', icon: 'format_align_right' },
+              ].map(o => (
+                <button
+                  key={o.id}
+                  type="button"
+                  onClick={() => setTextAlign(o.id)}
+                  style={iconBtn(textAlign === o.id)}
+                >
+                  <span className="material-symbols-outlined" style={{ fontSize: 20, color: textAlign === o.id ? D.accent : D.textSoft }}>{o.icon}</span>
+                </button>
+              ))}
             </div>
           </div>
 

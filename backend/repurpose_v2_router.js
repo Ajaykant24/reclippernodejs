@@ -56,6 +56,7 @@ async function runPipeline(
   userId,
   overlayMode = 'generated',
   originalOverlay = '',
+  textAlign = 'left',
 ) {
   try {
     update(jobId, { status: 'probing', progress: 5 })
@@ -156,6 +157,7 @@ async function runPipeline(
       clip_caption: caption,
       overlay_texts: overlays,
       original_overlay: originalOverlay,
+      text_align: textAlign,
       analysis_source: 'repurpose_v2',
     }
 
@@ -232,6 +234,8 @@ router.post('/', upload.fields([
     const intensity = String(req.body.intensity || 'medium')
     const overlayMode = String(req.body.overlay_mode || 'generated')
     const originalOverlay = String(req.body.original_overlay || '').trim()
+    const textAlignInput = String(req.body.text_align || 'left').toLowerCase()
+    const textAlign = ['left', 'center', 'right'].includes(textAlignInput) ? textAlignInput : 'left'
 
     JOBS[jobId] = {
       job_id: jobId,
@@ -258,6 +262,7 @@ router.post('/', upload.fields([
         user.user_id,
         overlayMode,
         originalOverlay,
+        textAlign,
       ).catch(error => {
         update(jobId, { status: 'failed', error: error.message || 'Unexpected error' })
         console.error(`[repurpose_v2] Unhandled error for ${jobId}:`, error)
