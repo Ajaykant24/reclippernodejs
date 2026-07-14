@@ -25,6 +25,11 @@ const SUBTITLE_VIDEO_GAP = 10
 const EXACT_CROP_VERTICAL_SHIFT = 34
 const VIDEO_SIDE_MARGIN_RATIO = 0.05
 
+// Overlay-text font stack. The bundled "SFProDisplayWeb" (see @font-face in
+// index.css) is listed first so overlay text looks identical on every device,
+// instead of only rendering as true SF Pro on Apple hardware.
+const OVERLAY_FONT_STACK = '"SFProDisplayWeb", -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", "Segoe UI", "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif'
+
 // ── Presets Lists Database ──
 const RATIOS = [
   { label: '3:2', w: 3, h: 2 },
@@ -124,7 +129,7 @@ function makeOverlayImage({ lines, textBox, fontSize, color, align, style, shado
 
   // 2. Custom text hook overlay rendering layer
   const exportFontSize = fontSize * EXPORT_SCALE
-  ctx.font = `400 ${exportFontSize}px -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", "Segoe UI", "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif`
+  ctx.font = `400 ${exportFontSize}px ${OVERLAY_FONT_STACK}`
   ctx.textBaseline = 'top'
   ctx.textAlign = align
   ctx.fillStyle = color
@@ -313,7 +318,7 @@ function wrapText(value, maxWidth = 260, fontSize = 20) {
   const ctx = getOverlayMeasureContext()
   const safeMaxWidth = Math.max(80, Number(maxWidth) || 260)
   const safeFontSize = clamp(Number(fontSize) || 20, 14, 64)
-  const font = `400 ${safeFontSize}px -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", "Segoe UI", "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif`
+  const font = `400 ${safeFontSize}px ${OVERLAY_FONT_STACK}`
 
   if (ctx) {
     ctx.font = font
@@ -1226,6 +1231,13 @@ export default function Editor() {
       setExporting(true)
       const logoImgElement = document.querySelector('img[alt="Brand logo"]')
 
+      // Make sure the bundled overlay font has actually finished loading before
+      // burning text into the canvas — otherwise the very first export on a cold
+      // page load could silently fall back to a system font.
+      if (document.fonts) {
+        try { await document.fonts.load(`400 ${renderedFontSize * EXPORT_SCALE}px "SFProDisplayWeb"`) } catch { /* falls back to font stack */ }
+      }
+
       // Packs layout variables and compiles the watermark overlay PNG base64 string
       const overlayImage = makeOverlayImage({
         lines: textHidden ? [] : lines,
@@ -1552,7 +1564,7 @@ export default function Editor() {
                                 borderRadius: textStyle === 'box' ? 6 : 0,
                                 background: textStyle === 'box' ? 'rgba(10, 15, 25, 0.76)' : 'transparent',
                                 color: textColor,
-                                fontFamily: '-apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", "Segoe UI", "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif',
+                                fontFamily: OVERLAY_FONT_STACK,
                                 fontWeight: 400,
                                 fontSize: renderedFontSize,
                                 lineHeight: 1.25,

@@ -29,3 +29,11 @@ if ('serviceWorker' in navigator) {
     navigator.serviceWorker.register('/sw.js').catch(() => {})
   })
 }
+
+// Warm up the bundled overlay-text font (see @font-face in index.css) as early
+// as possible, so canvas-based overlay previews (Projects cards) already have
+// it loaded by the time they first render, instead of only fetching it lazily
+// when an HTML element happens to use it.
+if (typeof document !== 'undefined' && document.fonts) {
+  document.fonts.load('400 32px "SFProDisplayWeb"').catch(() => {})
+}

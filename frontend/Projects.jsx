@@ -28,6 +28,12 @@ const OVERLAY_FONT_SIZE = 20          // Editor default font size (renderedFontS
 const OVERLAY_TEXT_WIDTH_PERCENT = 96 // Editor default text width as a % of the video width
 const EXACT_CROP_RATIO = 'Exact'      // Sentinel label for the source/original aspect ratio
 
+// Overlay-text font stack — MUST match editor.jsx's OVERLAY_FONT_STACK so the
+// card preview and the editor preview render text identically. The bundled
+// "SFProDisplayWeb" (see @font-face in index.css) comes first so it looks the
+// same on every device, not just Apple hardware.
+const OVERLAY_FONT_STACK = '"SFProDisplayWeb", -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", "Segoe UI", "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif'
+
 // HELPER: Keeps any number strictly locked between a minimum and maximum value
 const clamp = (value, min, max) => Math.max(min, Math.min(max, value))
 
@@ -82,7 +88,7 @@ function wrapText(value, maxWidth = 260, fontSize = OVERLAY_FONT_SIZE) {
   const ctx = getOverlayMeasureContext()
   const safeMaxWidth = Math.max(80, Number(maxWidth) || 260)
   const safeFontSize = clamp(Number(fontSize) || OVERLAY_FONT_SIZE, 14, 64)
-  const font = `400 ${safeFontSize}px -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", "Segoe UI", "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif`
+  const font = `400 ${safeFontSize}px ${OVERLAY_FONT_STACK}`
   if (ctx) ctx.font = font
 
   const measure = line => {
@@ -262,7 +268,7 @@ function makeOverlayImage({ lines, textBox, fontSize, textColor = '#ffffff' }) {
   }
   ctx.clearRect(0, 0, canvas.width, canvas.height)
   // Font styling configuration
-  ctx.font = `400 ${exportFontSize}px -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", "Segoe UI", "Segoe UI Emoji", "Apple Color Emoji", sans-serif`
+  ctx.font = `400 ${exportFontSize}px ${OVERLAY_FONT_STACK}`
   ctx.textBaseline = 'top'
   ctx.textAlign = 'center'
   ctx.fillStyle = textColor
@@ -618,6 +624,26 @@ function BentoCard({ project, onOpen, onDelete, selectable = false, selected = f
 }
 
 
+// Ensures the bundled overlay font (see @font-face in index.css) has actually
+// finished loading before the canvas overlay is drawn — main.jsx warms it up
+// on app boot, but this catches the case where a card renders before that
+// finishes (e.g. slow connection / cold cache).
+function useOverlayFontReady() {
+  const [ready, setReady] = useState(false)
+  useEffect(() => {
+    let cancelled = false
+    if (typeof document !== 'undefined' && document.fonts) {
+      document.fonts.load('400 32px "SFProDisplayWeb"')
+        .then(() => { if (!cancelled) setReady(true) })
+        .catch(() => { if (!cancelled) setReady(true) })
+    } else {
+      setReady(true)
+    }
+    return () => { cancelled = true }
+  }, [])
+  return ready
+}
+
 // â”€â”€ SUB-COMPONENT 6: PREMIUM REPURPOSED AI VIDEO MINI-STAGE CARD â”€â”€
 // - Purpose: Renders specialized AI 9:16 layout boxes.
 // - Magic: Instead of a flat thumbnail image, it renders an live streaming `<video>` element!
@@ -642,12 +668,13 @@ function RepurposeProjectCard({ project, onEdit, onDelete, selectable = false, s
   // Combines coordinates logic and builds overlay PNG data
   const preview = useMemo(() => buildRepurposePreview(clip), [clip])
   const textColor = overlayTextColor(bgType, bgColor)
+  const fontReady = useOverlayFontReady()
   const overlayImage = useMemo(() => makeOverlayImage({
     lines: preview.lines,
     textBox: preview.textBox,
     fontSize: preview.fontSize,
     textColor,
-  }), [preview, textColor])
+  }), [preview, textColor, fontReady])
 
   // Triggers immediate download of the clip. Calls FastAPI overlay builder `/export/preview`
   const handleDownload = async () => {
