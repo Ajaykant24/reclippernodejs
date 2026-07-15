@@ -4,16 +4,20 @@
 // - Editing Tip: To change the login prompt text, edit the `<h1>` and `<p>` strings inside the card.
 
 import { useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { api, saveSession as persistSession } from './api/client'
 
 export default function SignInPage() {
   const navigate = useNavigate()
-  
+  const [searchParams] = useSearchParams()
+
   // STATE MANAGEMENT: Local memory variables to track inputs, error states, and loading spinners.
   const [form, setForm] = useState({ email: '', password: '' })
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+  // Set by the rolling inactivity auto-logout (api/client.js) when it redirects
+  // here after ~6 days of no activity, so the sign-out doesn't feel unexplained.
+  const sessionExpired = searchParams.get('expired') === '1'
 
   // SESSION CACHER: Safely stores the session token + user (guards bad tokens),
   // then redirects you to /dashboard.
@@ -72,6 +76,13 @@ export default function SignInPage() {
         <span className="eyebrow">Welcome back</span>
         <h1>Sign in to Reclipper</h1>
         <p>Continue to your projects, editor, export review, and caption workflow.</p>
+
+        {/* Shown only when redirected here by the rolling inactivity auto-logout. */}
+        {sessionExpired && !error ? (
+          <div className="error-box" style={{ background: 'rgba(45, 212, 191, 0.1)', borderColor: 'rgba(45, 212, 191, 0.3)', color: 'var(--teal)' }}>
+            You were signed out after a few days of inactivity. Sign in again to continue.
+          </div>
+        ) : null}
 
         {/* ERROR MESSAGE ALERT PANEL: Only visible if a login failure occurs. */}
         {error ? <div className="error-box">{error}</div> : null}

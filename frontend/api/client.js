@@ -33,6 +33,10 @@ export function resolveUrl(path) {
 
 const TOKEN_KEY = 'token'
 const USER_KEY = 'user'
+const LAST_ACTIVE_KEY = 'lastActiveAt'
+// Rolling inactivity window: any use of the app resets this clock. Only truly
+// walking away for this long logs someone out — daily/regular use never does.
+const INACTIVITY_LIMIT_MS = 6 * 24 * 60 * 60 * 1000 // 6 days
 
 function isValidToken(token) {
   return typeof token === 'string'
@@ -51,6 +55,8 @@ export function saveSession(session) {
   }
   localStorage.setItem(TOKEN_KEY, token)
   if (session.user) localStorage.setItem(USER_KEY, JSON.stringify(session.user))
+  // Fresh login = fully active — starts the 6-day inactivity clock from now.
+  localStorage.setItem(LAST_ACTIVE_KEY, String(Date.now()))
 }
 
 export function getToken() {
@@ -65,6 +71,26 @@ export function isAuthenticated() {
 export function clearSession() {
   localStorage.removeItem(TOKEN_KEY)
   localStorage.removeItem(USER_KEY)
+  localStorage.removeItem(LAST_ACTIVE_KEY)
+}
+
+// Rolling inactivity check: any real use of the app resets the clock, so daily
+// (or even weekly-ish) use keeps someone logged in forever. Only actually
+// walking away for INACTIVITY_LIMIT_MS logs them out — once, on their next
+// visit or API call. Safe to call often; it's cheap and a no-op when logged out.
+export function checkAndTrackActivity() {
+  if (!isAuthenticated()) return
+  const lastActive = Number(localStorage.getItem(LAST_ACTIVE_KEY) || 0)
+  const now = Date.now()
+  if (lastActive && now - lastActive > INACTIVITY_LIMIT_MS) {
+    clearSession()
+    const publicPaths = ['/', '/signin', '/signup']
+    if (typeof window !== 'undefined' && !publicPaths.includes(window.location.pathname)) {
+      window.location.href = '/signin?expired=1'
+    }
+    return
+  }
+  localStorage.setItem(LAST_ACTIVE_KEY, String(now))
 }
 
 // On load, re-affirm a valid stored session so the app treats it as long-lived.
@@ -72,11 +98,13 @@ export function clearSession() {
 try {
   const stored = localStorage.getItem(TOKEN_KEY)
   if (stored && !isValidToken(stored)) localStorage.removeItem(TOKEN_KEY)
+  checkAndTrackActivity() // catches a stale session the moment the app opens
 } catch { /* storage unavailable */ }
 
 // REQUEST SECURITY INTERCEPTOR: Automatically attaches your login session key (bearer token)
 // to every query sent to the Python server, ensuring you only view your own projects.
 api.interceptors.request.use((config) => {
+  checkAndTrackActivity() // every API call both enforces and refreshes the rolling window
   // Retrieves token from browser storage (default to 'local-user' for demo mode)
   const token = localStorage.getItem('token') || 'local-user'
   config.headers.Authorization = `Bearer ${token}`

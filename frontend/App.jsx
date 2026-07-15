@@ -17,6 +17,7 @@ import SignInPage from './SignIn.jsx'
 import SignUpPage from './SignUp.jsx'
 import InstallPrompt from './InstallPrompt.jsx'
 import AdminPage from './Admin.jsx'
+import { clearSession } from './api/client'
 
 // AUTH CHECK: A user is "logged in" only if a real session token is stored.
 // (The API client falls back to a shared 'local-user' string, which must NOT count as logged in.)
@@ -97,8 +98,7 @@ function Shell() {
 
   // SESSION DESTRUCTION: Clears your session key and returns you to the landing page.
   const logout = () => {
-    localStorage.removeItem('token')
-    localStorage.removeItem('user')
+    clearSession()
     navigate('/')
   }
 

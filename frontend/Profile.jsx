@@ -4,17 +4,17 @@
 // - Editing Tip: To change the billing plan details displayed on the page, look under the second `<article>` box below.
 
 import { useNavigate } from 'react-router-dom'
+import { clearSession } from './api/client'
 
 export default function ProfilePage() {
   const navigate = useNavigate()
-  
+
   // SESSION PROFILE: Gathers credentials from browser's local cache.
   const user = JSON.parse(localStorage.getItem('user') || '{}')
 
   // SESSION DESTRUCTION: Logs user out and routes them to homepage.
   const logout = () => {
-    localStorage.removeItem('token')
-    localStorage.removeItem('user')
+    clearSession()
     navigate('/')
   }
 
