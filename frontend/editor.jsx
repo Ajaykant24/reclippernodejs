@@ -511,6 +511,9 @@ export default function Editor() {
   const [videoDragPos, setVideoDragPos] = useState(ep.videoDragPos ?? null)
   const [textDragPos, setTextDragPos] = useState(ep.textDragPos ?? null)
   const [snapLines, setSnapLines] = useState({ h: false, v: false }) // Alignment snapped guidelines trigger
+  // UI-only (not persisted): collapses the AI-suggested-hooks list so users reach
+  // Alignment/Style/Color/Size without scrolling past a long list by default.
+  const [showAiHooks, setShowAiHooks] = useState(false)
 
   // Custom logo states
   const [logo, setLogo] = useState(ep.logo ?? null)
@@ -600,8 +603,14 @@ export default function Editor() {
   const stageHeight = STAGE_H * stageScale
   const previewPanelWidth = stageWidth + 8
 
-  const vw = clamp(pb.w * vtx.scale, 90, STAGE_W)
-  const vh = clamp(pb.h * vtx.scale, 90, STAGE_H)
+  // scaleX/scaleY (set by the corner/edge crop handles or pinch-to-zoom) let width
+  // and height change independently. Falls back to the single uniform `scale`
+  // (from the Zoom slider, or older saved edits) when unset, so nothing about
+  // existing persisted edits changes.
+  const effScaleX = vtx.scaleX ?? vtx.scale
+  const effScaleY = vtx.scaleY ?? vtx.scale
+  const vw = clamp(pb.w * effScaleX, 90, STAGE_W)
+  const vh = clamp(pb.h * effScaleY, 90, STAGE_H)
 
   // Resolved positioning (free-drag positioning overrides standard presets)
   const vl = videoDragPos
@@ -1070,6 +1079,39 @@ export default function Editor() {
   // - Center Snap: If center of coordinates aligns close to page center (within 8px), pulls it to perfect alignment and flashes a blue guideline.
   const SNAP_THRESHOLD = 8
 
+  // Shared pointer-drag binder. Pointer Events unify mouse, touch, and pen in one
+  // API (PointerEvent has the same clientX/clientY as MouseEvent), so this single
+  // helper is what makes every draggable element in the editor work with a finger
+  // on mobile, not just a mouse cursor on desktop. Pointer capture keeps tracking
+  // the same finger/cursor even if it moves fast or briefly leaves the element.
+  const bindPointerDrag = useCallback((e, onMove, onUp) => {
+    const pointerId = e.pointerId
+    const target = e.currentTarget
+    try { target.setPointerCapture?.(pointerId) } catch { /* unsupported */ }
+
+    const move = (mv) => {
+      if (mv.pointerId !== pointerId) return
+      onMove(mv)
+    }
+    const up = (mv) => {
+      if (mv.pointerId !== pointerId) return
+      try { target.releasePointerCapture?.(pointerId) } catch { /* unsupported */ }
+      document.removeEventListener('pointermove', move)
+      document.removeEventListener('pointerup', up)
+      document.removeEventListener('pointercancel', up)
+      onUp()
+    }
+    document.addEventListener('pointermove', move)
+    document.addEventListener('pointerup', up)
+    document.addEventListener('pointercancel', up)
+  }, [])
+
+  // Tracks whether a 2-finger pinch is currently controlling the video box, so a
+  // lingering single-finger drag from the first touch becomes a no-op while the
+  // pinch (started by the 2nd finger) takes over.
+  const pinchActiveRef = useRef(false)
+  const pinchStateRef = useRef(null)
+
   const startVideoDrag = useCallback((e) => {
     e.preventDefault()
     e.stopPropagation()
@@ -1079,7 +1121,8 @@ export default function Editor() {
     const initL = vl
     const initT = vt
 
-    const onMove = (mv) => {
+    bindPointerDrag(e, (mv) => {
+      if (pinchActiveRef.current) return
       const dx = (mv.clientX - startX) / stageScale
       const dy = (mv.clientY - startY) / stageScale
       let nx = initL + dx
@@ -1095,17 +1138,109 @@ export default function Editor() {
 
       setVideoDragPos({ x: nx, y: ny })
       setSnapLines({ v: snapV, h: snapH })
-    }
-
-    const onUp = () => {
+    }, () => {
       setSnapLines({ h: false, v: false })
-      document.removeEventListener('mousemove', onMove)
-      document.removeEventListener('mouseup', onUp)
-    }
+    })
+  }, [vl, vt, vw, vh, stageScale, bindPointerDrag])
 
-    document.addEventListener('mousemove', onMove)
-    document.addEventListener('mouseup', onUp)
-  }, [vl, vt, vw, vh, stageScale])
+  // 2-finger pinch-to-zoom on the video box. Kept as native touch events (rather
+  // than Pointer Events) because detecting "exactly 2 fingers" is directly given
+  // by `e.touches.length`, whereas Pointer Events report one pointer per event and
+  // would need extra bookkeeping to arrive at the same information.
+  const handleVideoTouchStart = useCallback((e) => {
+    if (e.touches.length !== 2) return
+    e.preventDefault()
+    pinchActiveRef.current = true
+    setVideoDragPos(null) // hand position control over to vtx for the rest of the gesture
+    const [t1, t2] = e.touches
+    pinchStateRef.current = {
+      startDist: Math.hypot(t2.clientX - t1.clientX, t2.clientY - t1.clientY),
+      baseScaleX: effScaleX,
+      baseScaleY: effScaleY,
+      baseVl: vl,
+      baseVt: vt,
+      baseVw: vw,
+      baseVh: vh,
+    }
+  }, [effScaleX, effScaleY, vl, vt, vw, vh])
+
+  const handleVideoTouchMove = useCallback((e) => {
+    if (!pinchActiveRef.current || e.touches.length < 2) return
+    e.preventDefault()
+    const state = pinchStateRef.current
+    if (!state || !state.startDist) return
+    const [t1, t2] = e.touches
+    const dist = Math.hypot(t2.clientX - t1.clientX, t2.clientY - t1.clientY)
+    const ratio = dist / state.startDist
+    const scaleX = clamp(state.baseScaleX * ratio, 0.5, 2.6)
+    const scaleY = clamp(state.baseScaleY * ratio, 0.5, 2.6)
+    // Zoom around the box's own center (simple, predictable — matches how pinch
+    // zoom behaves in most photo/video editors).
+    const centerX = state.baseVl + state.baseVw / 2
+    const centerY = state.baseVt + state.baseVh / 2
+    const newVw = pb.w * scaleX
+    const newVh = pb.h * scaleY
+    setVtx(prev => ({
+      ...prev,
+      scaleX,
+      scaleY,
+      ox: (centerX - newVw / 2) - pb.l,
+      oy: (centerY - newVh / 2) - pb.t,
+    }))
+  }, [pb.w, pb.h, pb.l, pb.t])
+
+  const handleVideoTouchEnd = useCallback((e) => {
+    if (e.touches.length < 2) {
+      pinchActiveRef.current = false
+      pinchStateRef.current = null
+    }
+  }, [])
+
+  // Corner/edge crop-resize handles. dirX in {null,'e','w'} and dirY in
+  // {null,'n','s'} pick which edge(s) this handle moves — e.g. the top-right
+  // corner handle passes dirX='e', dirY='n'; the bottom-mid edge handle passes
+  // dirX=null, dirY='s'. Combining both axes independently is what lets every
+  // corner AND every side be dragged on its own, exactly like a normal crop tool,
+  // while never exceeding the width/height bounds already used by the Zoom slider.
+  const startCropResize = useCallback((dirX, dirY, e) => {
+    e.preventDefault()
+    e.stopPropagation()
+    setTab('canvas')
+    const startX = e.clientX
+    const startY = e.clientY
+    const baseVl = vl
+    const baseVt = vt
+    const baseVw = vw
+    const baseVh = vh
+    setVideoDragPos(null) // resize is always vtx-driven, even if a prior plain drag was active
+
+    bindPointerDrag(e, (mv) => {
+      const dx = (mv.clientX - startX) / stageScale
+      const dy = (mv.clientY - startY) / stageScale
+
+      let newVw = baseVw
+      if (dirX === 'e') newVw = baseVw + dx
+      else if (dirX === 'w') newVw = baseVw - dx
+      const scaleX = clamp(newVw / pb.w, 0.5, 2.6)
+      const clampedVw = pb.w * scaleX
+      const newLeftPx = dirX === 'w' ? (baseVl + baseVw) - clampedVw : baseVl
+
+      let newVh = baseVh
+      if (dirY === 's') newVh = baseVh + dy
+      else if (dirY === 'n') newVh = baseVh - dy
+      const scaleY = clamp(newVh / pb.h, 0.5, 2.6)
+      const clampedVh = pb.h * scaleY
+      const newTopPx = dirY === 'n' ? (baseVt + baseVh) - clampedVh : baseVt
+
+      setVtx(prev => ({
+        ...prev,
+        scaleX,
+        scaleY,
+        ox: newLeftPx - pb.l,
+        oy: newTopPx - pb.t,
+      }))
+    }, () => {})
+  }, [vl, vt, vw, vh, pb.w, pb.h, pb.l, pb.t, stageScale, bindPointerDrag])
 
   const startTextDrag = useCallback((e) => {
     e.preventDefault()
@@ -1116,7 +1251,7 @@ export default function Editor() {
     const initX = ttx.x
     const initY = ttx.y
 
-    const onMove = (mv) => {
+    bindPointerDrag(e, (mv) => {
       const dx = (mv.clientX - startX) / stageScale
       const dy = (mv.clientY - startY) / stageScale
       let nx = initX + dx
@@ -1131,17 +1266,10 @@ export default function Editor() {
 
       setTextDragPos({ x: nx, y: ny })
       setSnapLines({ v: snapV, h: false })
-    }
-
-    const onUp = () => {
+    }, () => {
       setSnapLines({ h: false, v: false })
-      document.removeEventListener('mousemove', onMove)
-      document.removeEventListener('mouseup', onUp)
-    }
-
-    document.addEventListener('mousemove', onMove)
-    document.addEventListener('mouseup', onUp)
-  }, [ttx.x, ttx.y, ttx.w, textBlockHeight, stageScale])
+    })
+  }, [ttx.x, ttx.y, ttx.w, textBlockHeight, stageScale, bindPointerDrag])
 
   const startCaptionDrag = useCallback((e) => {
     e.preventDefault()
@@ -1152,7 +1280,7 @@ export default function Editor() {
     const initX = captionTransform.x
     const initY = captionTransform.y
 
-    const onMove = (mv) => {
+    bindPointerDrag(e, (mv) => {
       const dx = (mv.clientX - startX) / stageScale
       const dy = (mv.clientY - startY) / stageScale
       let nx = initX + dx
@@ -1166,17 +1294,10 @@ export default function Editor() {
 
       setCaptionDragPos({ x: nx, y: ny })
       setSnapLines({ v: snapV, h: false })
-    }
-
-    const onUp = () => {
+    }, () => {
       setSnapLines({ h: false, v: false })
-      document.removeEventListener('mousemove', onMove)
-      document.removeEventListener('mouseup', onUp)
-    }
-
-    document.addEventListener('mousemove', onMove)
-    document.addEventListener('mouseup', onUp)
-  }, [captionBlockHeight, captionTransform.w, captionTransform.x, captionTransform.y, stageScale])
+    })
+  }, [captionBlockHeight, captionTransform.w, captionTransform.x, captionTransform.y, stageScale, bindPointerDrag])
 
   const startLogoDrag = useCallback((e) => {
     e.preventDefault()
@@ -1187,7 +1308,7 @@ export default function Editor() {
     const initX = logoLeft
     const initY = logoTop
 
-    const onMove = (mv) => {
+    bindPointerDrag(e, (mv) => {
       const dx = (mv.clientX - startX) / stageScale
       const dy = (mv.clientY - startY) / stageScale
       let nx = initX + dx
@@ -1201,17 +1322,10 @@ export default function Editor() {
       setLogoX(Math.round(clamp(nx, 0, STAGE_W - logoSize)))
       setLogoY(Math.round(clamp(ny, 0, STAGE_H - logoSize)))
       setSnapLines({ v: snapV, h: false })
-    }
-
-    const onUp = () => {
+    }, () => {
       setSnapLines({ h: false, v: false })
-      document.removeEventListener('mousemove', onMove)
-      document.removeEventListener('mouseup', onUp)
-    }
-
-    document.addEventListener('mousemove', onMove)
-    document.addEventListener('mouseup', onUp)
-  }, [logoLeft, logoTop, logoSize, stageScale])
+    })
+  }, [logoLeft, logoTop, logoSize, stageScale, bindPointerDrag])
 
   const applyCaptionTemplate = template => {
     setCaptionTemplateId(template.id)
@@ -1492,9 +1606,16 @@ export default function Editor() {
                       </div>
                     ) : null}
 
-                    {/* DRAGGABLE FOREGROUND VIDEO WINDOW WRAPPER */}
+                    {/* DRAGGABLE FOREGROUND VIDEO WINDOW WRAPPER — Pointer Events give
+                        mouse + single-finger touch drag; the touch handlers add 2-finger
+                        pinch-to-zoom. touchAction:'none' stops the browser's own
+                        scroll/zoom gestures from stealing the touch first. */}
                     <div
-                      onMouseDown={e => startVideoDrag(e)}
+                      onPointerDown={e => startVideoDrag(e)}
+                      onTouchStart={handleVideoTouchStart}
+                      onTouchMove={handleVideoTouchMove}
+                      onTouchEnd={handleVideoTouchEnd}
+                      onTouchCancel={handleVideoTouchEnd}
                       style={{
                         position: 'absolute',
                         left: vl,
@@ -1509,6 +1630,7 @@ export default function Editor() {
                         cursor: 'grab',
                         opacity: 1,
                         zIndex: 10,
+                        touchAction: 'none',
                       }}
                     >
                       <video
@@ -1539,10 +1661,52 @@ export default function Editor() {
                       />
                     </div>
 
+                    {/* CROP HANDLES — 4 corners + 4 edges, each independently draggable
+                        (dirX/dirY pick which edge(s) that handle moves). Sits outside the
+                        video wrapper's overflow:hidden so handles are never clipped. Works
+                        with touch the same as mouse (Pointer Events via startCropResize). */}
+                    {[
+                      { id: 'nw', dirX: 'w', dirY: 'n', x: vl, y: vt, cursor: 'nwse-resize' },
+                      { id: 'n', dirX: null, dirY: 'n', x: vl + vw / 2, y: vt, cursor: 'ns-resize' },
+                      { id: 'ne', dirX: 'e', dirY: 'n', x: vl + vw, y: vt, cursor: 'nesw-resize' },
+                      { id: 'e', dirX: 'e', dirY: null, x: vl + vw, y: vt + vh / 2, cursor: 'ew-resize' },
+                      { id: 'se', dirX: 'e', dirY: 's', x: vl + vw, y: vt + vh, cursor: 'nwse-resize' },
+                      { id: 's', dirX: null, dirY: 's', x: vl + vw / 2, y: vt + vh, cursor: 'ns-resize' },
+                      { id: 'sw', dirX: 'w', dirY: 's', x: vl, y: vt + vh, cursor: 'nesw-resize' },
+                      { id: 'w', dirX: 'w', dirY: null, x: vl, y: vt + vh / 2, cursor: 'ew-resize' },
+                    ].map(handle => (
+                      <div
+                        key={handle.id}
+                        onPointerDown={e => startCropResize(handle.dirX, handle.dirY, e)}
+                        style={{
+                          position: 'absolute',
+                          left: handle.x - 14,
+                          top: handle.y - 14,
+                          width: 28,
+                          height: 28,
+                          zIndex: 15,
+                          cursor: handle.cursor,
+                          touchAction: 'none',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                        }}
+                      >
+                        <span style={{
+                          width: 11,
+                          height: 11,
+                          borderRadius: 3,
+                          background: '#fff',
+                          border: '1.5px solid rgba(0, 0, 0, 0.55)',
+                          boxShadow: '0 1px 4px rgba(0, 0, 0, 0.4)',
+                        }} />
+                      </div>
+                    ))}
+
                     {/* DRAGGABLE TITLE OVERLAY TEXT BLOCK */}
                     {!textHidden ? (
                       <div
-                        onMouseDown={e => startTextDrag(e)}
+                        onPointerDown={e => startTextDrag(e)}
                         style={{
                           position: 'absolute',
                           left: ttx.x,
@@ -1553,6 +1717,7 @@ export default function Editor() {
                           cursor: 'grab',
                           userSelect: 'none',
                           padding: '4px 0',
+                          touchAction: 'none',
                         }}
                       >
                         {lines.map((line, index) => (
@@ -1591,12 +1756,13 @@ export default function Editor() {
                     {enableCaptions && activeCaptionText ? (
                       <div
                         className="caption-live-preview"
-                        onMouseDown={startCaptionDrag}
+                        onPointerDown={startCaptionDrag}
                         style={{
                           left: captionTransform.x,
                           top: captionTransform.y,
                           width: captionTransform.w,
                           minHeight: captionBlockHeight,
+                          touchAction: 'none',
                           '--caption-primary': captionPrimaryColor,
                           '--caption-emphasis': captionPrimaryColor,
                           '--caption-spotlight': captionPrimaryColor,
@@ -1615,7 +1781,7 @@ export default function Editor() {
                       <img
                         src={logo}
                         alt="Brand logo"
-                        onMouseDown={startLogoDrag}
+                        onPointerDown={startLogoDrag}
                         style={{
                           position: 'absolute',
                           left: logoLeft,
@@ -1627,6 +1793,7 @@ export default function Editor() {
                           zIndex: 25,
                           cursor: 'grab',
                           userSelect: 'none',
+                          touchAction: 'none',
                         }}
                       />
                     ) : null}
@@ -1742,17 +1909,33 @@ export default function Editor() {
                     </button>
                   ) : null}
 
-                  {/* AI hook helpers picker */}
+                  {/* AI hook helpers picker — collapsed by default so Alignment/Style/Color/
+                      Size (below, or in Column B) are reachable without scrolling past this list. */}
                   {clip?.overlay_texts?.length > 1 && (
                     <div className="editor-field stack">
-                      <span className="text-label">AI Suggested Hooks</span>
-                      <div style={{ maxHeight: 220, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 6, paddingRight: 4, paddingBottom: 4 }}>
-                        {clip.overlay_texts.map((txt, i) => (
-                          <button key={i} className="btn btn-glass btn-sm" style={{ textAlign: 'left', whiteSpace: 'normal', padding: '8px 12px' }} onClick={() => setCustomText(cleanOverlayText(txt))}>
-                            "{txt}"
-                          </button>
-                        ))}
-                      </div>
+                      <button
+                        type="button"
+                        className="btn btn-glass btn-sm"
+                        style={{ justifyContent: 'space-between', width: '100%' }}
+                        onClick={() => setShowAiHooks(v => !v)}
+                      >
+                        <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                          <span className="material-symbols-outlined" style={{ fontSize: 16 }}>auto_awesome</span>
+                          AI Suggested Hooks ({clip.overlay_texts.length})
+                        </span>
+                        <span className="material-symbols-outlined" style={{ fontSize: 18 }}>
+                          {showAiHooks ? 'expand_less' : 'expand_more'}
+                        </span>
+                      </button>
+                      {showAiHooks && (
+                        <div style={{ maxHeight: 220, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 6, paddingRight: 4, paddingBottom: 4 }}>
+                          {clip.overlay_texts.map((txt, i) => (
+                            <button key={i} className="btn btn-glass btn-sm" style={{ textAlign: 'left', whiteSpace: 'normal', padding: '8px 12px' }} onClick={() => setCustomText(cleanOverlayText(txt))}>
+                              "{txt}"
+                            </button>
+                          ))}
+                        </div>
+                      )}
                     </div>
                   )}
 
@@ -1922,8 +2105,19 @@ export default function Editor() {
                 <div className="editor-panel-column">
                   <label className="editor-field">
                     <span className="text-label">Video scale</span>
-                    <input type="range" className="range" min="0.5" max="2.6" step="0.01" value={vtx.scale} onChange={event => setVtx(prev => ({ ...prev, scale: parseFloat(event.target.value) }))} />
-                    <span className="editor-value">{Math.round(vtx.scale * 100)}%</span>
+                    {/* Shows the average of scaleX/scaleY (which can differ after using
+                        the corner/edge crop handles or a pinch gesture). Moving this
+                        slider resets back to a uniform zoom, clearing any independent
+                        per-side crop. */}
+                    <input
+                      type="range" className="range" min="0.5" max="2.6" step="0.01"
+                      value={(effScaleX + effScaleY) / 2}
+                      onChange={event => {
+                        const next = parseFloat(event.target.value)
+                        setVtx(prev => ({ ...prev, scale: next, scaleX: undefined, scaleY: undefined }))
+                      }}
+                    />
+                    <span className="editor-value">{Math.round(((effScaleX + effScaleY) / 2) * 100)}%</span>
                   </label>
 
                   <label className="editor-field">
