@@ -392,27 +392,57 @@ app.post('/export/preview', asyncRoute(async (req, res) => {
   }
 
   const exportScale = 1920.0 / 720.0
+  // fw/fh/fx/fy = the visible (possibly cropped) frame's size + canvas position.
+  // mediaW/mediaH = the video's own full zoomed box (before any crop tool inset).
+  // insetLpx/insetTpx = where the visible frame sits inside that zoomed box.
+  // When there is no crop (frame === media, insets 0) this reduces to exactly
+  // the old single-step behavior.
   let fw
   let fh
   let fx
   let fy
+  let mediaW
+  let mediaH
+  let insetLpx
+  let insetTpx
   if (payload.video_transform) {
     fw = Math.trunc(payload.video_transform.w * exportScale)
     fh = Math.trunc(payload.video_transform.h * exportScale)
     fx = Math.trunc(payload.video_transform.x * exportScale)
     fy = Math.trunc(payload.video_transform.y * exportScale)
+    mediaW = Math.trunc((payload.video_transform.mediaW ?? payload.video_transform.w) * exportScale)
+    mediaH = Math.trunc((payload.video_transform.mediaH ?? payload.video_transform.h) * exportScale)
+    insetLpx = Math.trunc((payload.video_transform.insetL ?? 0) * exportScale)
+    insetTpx = Math.trunc((payload.video_transform.insetT ?? 0) * exportScale)
   } else {
     fw = 1080
     fh = 1920
     fx = 0
     fy = 0
+    mediaW = 1080
+    mediaH = 1920
+    insetLpx = 0
+    insetTpx = 0
   }
   fw -= fw % 2
   fh -= fh % 2
+  mediaW -= mediaW % 2
+  mediaH -= mediaH % 2
   fx = Math.round(fx)
   fy = Math.round(fy)
+  // Never let the crop offset/size exceed the zoomed media box (ffmpeg's crop
+  // filter errors if the requested region falls outside the input).
+  mediaW = Math.max(mediaW, fw)
+  mediaH = Math.max(mediaH, fh)
+  insetLpx = Math.max(0, Math.min(Math.round(insetLpx), mediaW - fw))
+  insetTpx = Math.max(0, Math.min(Math.round(insetTpx), mediaH - fh))
 
-  filterComplex += `[0:v]scale=${fw}:${fh}:force_original_aspect_ratio=increase,crop=${fw}:${fh}[fg];`
+  // Step 1: scale-to-cover + center-crop to the FULL zoomed media box (this is
+  // exactly the original single-step logic). Step 2: a plain crop (no rescale)
+  // that carves out just the visible frame from within that box — this is what
+  // makes it a real crop instead of a re-zoom, so the video never looks
+  // stretched/squeezed.
+  filterComplex += `[0:v]scale=${mediaW}:${mediaH}:force_original_aspect_ratio=increase,crop=${mediaW}:${mediaH},crop=${fw}:${fh}:${insetLpx}:${insetTpx}[fg];`
   filterComplex += `[bg][fg]overlay=x=${fx}:y=${fy}:shortest=1[composite]`
 
   let tempPngPath = null

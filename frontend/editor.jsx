@@ -603,14 +603,11 @@ export default function Editor() {
   const stageHeight = STAGE_H * stageScale
   const previewPanelWidth = stageWidth + 8
 
-  // scaleX/scaleY (set by the corner/edge crop handles or pinch-to-zoom) let width
-  // and height change independently. Falls back to the single uniform `scale`
-  // (from the Zoom slider, or older saved edits) when unset, so nothing about
-  // existing persisted edits changes.
-  const effScaleX = vtx.scaleX ?? vtx.scale
-  const effScaleY = vtx.scaleY ?? vtx.scale
-  const vw = clamp(pb.w * effScaleX, 90, STAGE_W)
-  const vh = clamp(pb.h * effScaleY, 90, STAGE_H)
+  // Zoom is always uniform (a single scale factor) — this is what prevents the
+  // video from ever looking stretched/squeezed. Width and height must change
+  // TOGETHER when zooming, never independently.
+  const vw = clamp(pb.w * vtx.scale, 90, STAGE_W)
+  const vh = clamp(pb.h * vtx.scale, 90, STAGE_H)
 
   // Resolved positioning (free-drag positioning overrides standard presets)
   const vl = videoDragPos
@@ -624,6 +621,23 @@ export default function Editor() {
   const videoTop = vt
   const videoWidth = vw
   const videoHeight = vh
+
+  // ── CROP FRAME ──
+  // A real crop never resizes/rescales the video itself — it only masks part of
+  // it away. cropInsets are 4 independent distances (in stage px) that the crop
+  // handles push in from each side of the video's own (unchanged) box. The frame
+  // rectangle = the video box shrunk by these insets; the video underneath stays
+  // exactly the size/zoom it already was, so it can never look stretched.
+  const cropInsets = vtx.cropInsets ?? { l: 0, t: 0, r: 0, b: 0 }
+  const MIN_FRAME_SIZE = 40
+  const insetL = clamp(cropInsets.l ?? 0, 0, Math.max(0, videoWidth - MIN_FRAME_SIZE))
+  const insetT = clamp(cropInsets.t ?? 0, 0, Math.max(0, videoHeight - MIN_FRAME_SIZE))
+  const insetR = clamp(cropInsets.r ?? 0, 0, Math.max(0, videoWidth - MIN_FRAME_SIZE - insetL))
+  const insetB = clamp(cropInsets.b ?? 0, 0, Math.max(0, videoHeight - MIN_FRAME_SIZE - insetT))
+  const frameL = videoLeft + insetL
+  const frameT = videoTop + insetT
+  const frameW = videoWidth - insetL - insetR
+  const frameH = videoHeight - insetT - insetB
 
   const renderedFontSize = clamp(fontSize, 14, 64)
   const textWidthRatio = clamp(textWidthPercent, 55, 96) / 100
@@ -1155,14 +1169,13 @@ export default function Editor() {
     const [t1, t2] = e.touches
     pinchStateRef.current = {
       startDist: Math.hypot(t2.clientX - t1.clientX, t2.clientY - t1.clientY),
-      baseScaleX: effScaleX,
-      baseScaleY: effScaleY,
+      baseScale: vtx.scale,
       baseVl: vl,
       baseVt: vt,
       baseVw: vw,
       baseVh: vh,
     }
-  }, [effScaleX, effScaleY, vl, vt, vw, vh])
+  }, [vtx.scale, vl, vt, vw, vh])
 
   const handleVideoTouchMove = useCallback((e) => {
     if (!pinchActiveRef.current || e.touches.length < 2) return
@@ -1172,18 +1185,18 @@ export default function Editor() {
     const [t1, t2] = e.touches
     const dist = Math.hypot(t2.clientX - t1.clientX, t2.clientY - t1.clientY)
     const ratio = dist / state.startDist
-    const scaleX = clamp(state.baseScaleX * ratio, 0.5, 2.6)
-    const scaleY = clamp(state.baseScaleY * ratio, 0.5, 2.6)
+    // Uniform zoom only — never independent per axis, so the video can never
+    // look stretched/squeezed while pinching.
+    const scale = clamp(state.baseScale * ratio, 0.5, 2.6)
     // Zoom around the box's own center (simple, predictable — matches how pinch
     // zoom behaves in most photo/video editors).
     const centerX = state.baseVl + state.baseVw / 2
     const centerY = state.baseVt + state.baseVh / 2
-    const newVw = pb.w * scaleX
-    const newVh = pb.h * scaleY
+    const newVw = pb.w * scale
+    const newVh = pb.h * scale
     setVtx(prev => ({
       ...prev,
-      scaleX,
-      scaleY,
+      scale,
       ox: (centerX - newVw / 2) - pb.l,
       oy: (centerY - newVh / 2) - pb.t,
     }))
@@ -1199,48 +1212,42 @@ export default function Editor() {
   // Corner/edge crop-resize handles. dirX in {null,'e','w'} and dirY in
   // {null,'n','s'} pick which edge(s) this handle moves — e.g. the top-right
   // corner handle passes dirX='e', dirY='n'; the bottom-mid edge handle passes
-  // dirX=null, dirY='s'. Combining both axes independently is what lets every
-  // corner AND every side be dragged on its own, exactly like a normal crop tool,
-  // while never exceeding the width/height bounds already used by the Zoom slider.
+  // dirX=null, dirY='s'. This is a REAL crop: it only ever changes cropInsets
+  // (the mask), never vtx.scale/ox/oy — the video itself never resizes, so it
+  // can never look stretched or squeezed. Dragging a handle just reveals or
+  // hides more of the video that's already there, exactly like a normal crop
+  // tool (Photos/Instagram-style), independently per corner and per side.
   const startCropResize = useCallback((dirX, dirY, e) => {
     e.preventDefault()
     e.stopPropagation()
     setTab('canvas')
     const startX = e.clientX
     const startY = e.clientY
-    const baseVl = vl
-    const baseVt = vt
-    const baseVw = vw
-    const baseVh = vh
-    setVideoDragPos(null) // resize is always vtx-driven, even if a prior plain drag was active
+    const baseInsetL = insetL
+    const baseInsetT = insetT
+    const baseInsetR = insetR
+    const baseInsetB = insetB
 
     bindPointerDrag(e, (mv) => {
       const dx = (mv.clientX - startX) / stageScale
       const dy = (mv.clientY - startY) / stageScale
 
-      let newVw = baseVw
-      if (dirX === 'e') newVw = baseVw + dx
-      else if (dirX === 'w') newVw = baseVw - dx
-      const scaleX = clamp(newVw / pb.w, 0.5, 2.6)
-      const clampedVw = pb.w * scaleX
-      const newLeftPx = dirX === 'w' ? (baseVl + baseVw) - clampedVw : baseVl
+      let newInsetL = baseInsetL
+      let newInsetR = baseInsetR
+      if (dirX === 'w') newInsetL = clamp(baseInsetL + dx, 0, Math.max(0, videoWidth - MIN_FRAME_SIZE - baseInsetR))
+      else if (dirX === 'e') newInsetR = clamp(baseInsetR - dx, 0, Math.max(0, videoWidth - MIN_FRAME_SIZE - baseInsetL))
 
-      let newVh = baseVh
-      if (dirY === 's') newVh = baseVh + dy
-      else if (dirY === 'n') newVh = baseVh - dy
-      const scaleY = clamp(newVh / pb.h, 0.5, 2.6)
-      const clampedVh = pb.h * scaleY
-      const newTopPx = dirY === 'n' ? (baseVt + baseVh) - clampedVh : baseVt
+      let newInsetT = baseInsetT
+      let newInsetB = baseInsetB
+      if (dirY === 'n') newInsetT = clamp(baseInsetT + dy, 0, Math.max(0, videoHeight - MIN_FRAME_SIZE - baseInsetB))
+      else if (dirY === 's') newInsetB = clamp(baseInsetB - dy, 0, Math.max(0, videoHeight - MIN_FRAME_SIZE - baseInsetT))
 
       setVtx(prev => ({
         ...prev,
-        scaleX,
-        scaleY,
-        ox: newLeftPx - pb.l,
-        oy: newTopPx - pb.t,
+        cropInsets: { l: newInsetL, t: newInsetT, r: newInsetR, b: newInsetB },
       }))
     }, () => {})
-  }, [vl, vt, vw, vh, pb.w, pb.h, pb.l, pb.t, stageScale, bindPointerDrag])
+  }, [insetL, insetT, insetR, insetB, videoWidth, videoHeight, stageScale, bindPointerDrag])
 
   const startTextDrag = useCallback((e) => {
     e.preventDefault()
@@ -1430,7 +1437,22 @@ export default function Editor() {
           text_color: textColor,
           font_size: renderedFontSize,
           volume,
-          video_transform: { ...vtx, x: vl, y: vt, w: vw, h: vh },
+          // x/y/w/h = the visible CROPPED frame (what actually shows on the canvas).
+          // mediaW/mediaH/insetL/insetT describe the full-size (uncropped, zoomed)
+          // video box and where the frame sits inside it, so the backend can
+          // replicate the crop with a second, non-rescaling crop step — never
+          // stretching the video to fit the frame's shape.
+          video_transform: {
+            ...vtx,
+            x: frameL,
+            y: frameT,
+            w: frameW,
+            h: frameH,
+            mediaW: videoWidth,
+            mediaH: videoHeight,
+            insetL,
+            insetT,
+          },
           text_transform: ttx,
           overlay_image: overlayImage,
           enable_captions: enableCaptions,
@@ -1606,10 +1628,10 @@ export default function Editor() {
                       </div>
                     ) : null}
 
-                    {/* DRAGGABLE FOREGROUND VIDEO WINDOW WRAPPER — Pointer Events give
-                        mouse + single-finger touch drag; the touch handlers add 2-finger
-                        pinch-to-zoom. touchAction:'none' stops the browser's own
-                        scroll/zoom gestures from stealing the touch first. */}
+                    {/* CROP FRAME (the mask) — sized/positioned by the 8 handles below.
+                        Pointer Events give mouse + single-finger touch drag-to-move; the
+                        touch handlers add 2-finger pinch-to-zoom. touchAction:'none' stops
+                        the browser's own scroll/zoom gestures from stealing the touch. */}
                     <div
                       onPointerDown={e => startVideoDrag(e)}
                       onTouchStart={handleVideoTouchStart}
@@ -1618,10 +1640,10 @@ export default function Editor() {
                       onTouchCancel={handleVideoTouchEnd}
                       style={{
                         position: 'absolute',
-                        left: vl,
-                        top: vt,
-                        width: vw,
-                        height: vh,
+                        left: frameL,
+                        top: frameT,
+                        width: frameW,
+                        height: frameH,
                         overflow: 'hidden',
                         borderRadius: 0,
                         border: '1px solid rgba(255, 255, 255, 0.12)',
@@ -1633,47 +1655,62 @@ export default function Editor() {
                         touchAction: 'none',
                       }}
                     >
-                      <video
-                        ref={videoRef}
-                        src={clipUrl}
-                        playsInline
-                        loop
-                        preload="auto"
-                        crossOrigin="anonymous"
-                        onLoadedData={revealVideoAfterFramePaint}
-                        onCanPlay={revealVideoAfterFramePaint}
-                        onLoadedMetadata={event => {
-                          setDuration(event.target.duration || 0)
-                          setCurrentTime(0)
-                        }}
-                        onTimeUpdate={event => setCurrentTime(event.target.currentTime)}
-                        onPlaying={() => setForegroundPlaying(true)}
-                        onWaiting={() => setForegroundPlaying(false)}
-                        onSeeking={() => setForegroundPlaying(false)}
+                      {/* MEDIA — the video's own box. Its size/zoom is driven ONLY by
+                          vtx.scale (uniform), never by the crop insets, so it can never
+                          look stretched/squeezed. The crop frame's overflow:hidden simply
+                          masks whatever part of this box falls outside the frame. */}
+                      <div
                         style={{
-                          width: '100%',
-                          height: '100%',
-                          objectFit: 'cover',
-                          pointerEvents: 'none',
-                          opacity: videoReady ? 1 : 0,
-                          display: 'block',
+                          position: 'absolute',
+                          left: videoLeft - frameL,
+                          top: videoTop - frameT,
+                          width: videoWidth,
+                          height: videoHeight,
                         }}
-                      />
+                      >
+                        <video
+                          ref={videoRef}
+                          src={clipUrl}
+                          playsInline
+                          loop
+                          preload="auto"
+                          crossOrigin="anonymous"
+                          onLoadedData={revealVideoAfterFramePaint}
+                          onCanPlay={revealVideoAfterFramePaint}
+                          onLoadedMetadata={event => {
+                            setDuration(event.target.duration || 0)
+                            setCurrentTime(0)
+                          }}
+                          onTimeUpdate={event => setCurrentTime(event.target.currentTime)}
+                          onPlaying={() => setForegroundPlaying(true)}
+                          onWaiting={() => setForegroundPlaying(false)}
+                          onSeeking={() => setForegroundPlaying(false)}
+                          style={{
+                            width: '100%',
+                            height: '100%',
+                            objectFit: 'cover',
+                            pointerEvents: 'none',
+                            opacity: videoReady ? 1 : 0,
+                            display: 'block',
+                          }}
+                        />
+                      </div>
                     </div>
 
                     {/* CROP HANDLES — 4 corners + 4 edges, each independently draggable
-                        (dirX/dirY pick which edge(s) that handle moves). Sits outside the
-                        video wrapper's overflow:hidden so handles are never clipped. Works
-                        with touch the same as mouse (Pointer Events via startCropResize). */}
+                        (dirX/dirY pick which edge(s) that handle moves). Positioned on the
+                        FRAME's corners/edges (not the video's), since the frame is what
+                        actually gets cropped. Works with touch the same as mouse (Pointer
+                        Events via startCropResize). */}
                     {[
-                      { id: 'nw', dirX: 'w', dirY: 'n', x: vl, y: vt, cursor: 'nwse-resize' },
-                      { id: 'n', dirX: null, dirY: 'n', x: vl + vw / 2, y: vt, cursor: 'ns-resize' },
-                      { id: 'ne', dirX: 'e', dirY: 'n', x: vl + vw, y: vt, cursor: 'nesw-resize' },
-                      { id: 'e', dirX: 'e', dirY: null, x: vl + vw, y: vt + vh / 2, cursor: 'ew-resize' },
-                      { id: 'se', dirX: 'e', dirY: 's', x: vl + vw, y: vt + vh, cursor: 'nwse-resize' },
-                      { id: 's', dirX: null, dirY: 's', x: vl + vw / 2, y: vt + vh, cursor: 'ns-resize' },
-                      { id: 'sw', dirX: 'w', dirY: 's', x: vl, y: vt + vh, cursor: 'nesw-resize' },
-                      { id: 'w', dirX: 'w', dirY: null, x: vl, y: vt + vh / 2, cursor: 'ew-resize' },
+                      { id: 'nw', dirX: 'w', dirY: 'n', x: frameL, y: frameT, cursor: 'nwse-resize' },
+                      { id: 'n', dirX: null, dirY: 'n', x: frameL + frameW / 2, y: frameT, cursor: 'ns-resize' },
+                      { id: 'ne', dirX: 'e', dirY: 'n', x: frameL + frameW, y: frameT, cursor: 'nesw-resize' },
+                      { id: 'e', dirX: 'e', dirY: null, x: frameL + frameW, y: frameT + frameH / 2, cursor: 'ew-resize' },
+                      { id: 'se', dirX: 'e', dirY: 's', x: frameL + frameW, y: frameT + frameH, cursor: 'nwse-resize' },
+                      { id: 's', dirX: null, dirY: 's', x: frameL + frameW / 2, y: frameT + frameH, cursor: 'ns-resize' },
+                      { id: 'sw', dirX: 'w', dirY: 's', x: frameL, y: frameT + frameH, cursor: 'nesw-resize' },
+                      { id: 'w', dirX: 'w', dirY: null, x: frameL, y: frameT + frameH / 2, cursor: 'ew-resize' },
                     ].map(handle => (
                       <div
                         key={handle.id}
@@ -2105,19 +2142,12 @@ export default function Editor() {
                 <div className="editor-panel-column">
                   <label className="editor-field">
                     <span className="text-label">Video scale</span>
-                    {/* Shows the average of scaleX/scaleY (which can differ after using
-                        the corner/edge crop handles or a pinch gesture). Moving this
-                        slider resets back to a uniform zoom, clearing any independent
-                        per-side crop. */}
                     <input
                       type="range" className="range" min="0.5" max="2.6" step="0.01"
-                      value={(effScaleX + effScaleY) / 2}
-                      onChange={event => {
-                        const next = parseFloat(event.target.value)
-                        setVtx(prev => ({ ...prev, scale: next, scaleX: undefined, scaleY: undefined }))
-                      }}
+                      value={vtx.scale}
+                      onChange={event => setVtx(prev => ({ ...prev, scale: parseFloat(event.target.value) }))}
                     />
-                    <span className="editor-value">{Math.round(((effScaleX + effScaleY) / 2) * 100)}%</span>
+                    <span className="editor-value">{Math.round(vtx.scale * 100)}%</span>
                   </label>
 
                   <label className="editor-field">
@@ -2133,6 +2163,16 @@ export default function Editor() {
                   <button type="button" className="btn btn-glass btn-sm" onClick={() => setVtx({ ox: 0, oy: 0, scale: 1 })}>
                     Reset video transform
                   </button>
+
+                  {(insetL > 0 || insetT > 0 || insetR > 0 || insetB > 0) && (
+                    <button
+                      type="button"
+                      className="btn btn-glass btn-sm"
+                      onClick={() => setVtx(prev => ({ ...prev, cropInsets: { l: 0, t: 0, r: 0, b: 0 } }))}
+                    >
+                      Reset crop
+                    </button>
+                  )}
                 </div>
 
               </div>
