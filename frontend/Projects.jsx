@@ -228,7 +228,13 @@ function buildRepurposePreview(clip) {
   const videoBox = getPreviewBox(clip)
   const align = edits.textAlign ?? edits.text_align ?? clip?.text_align ?? 'left'
 
-  const renderedFontSize = clamp(OVERLAY_FONT_SIZE, 14, 64)
+  // Read all edits: text, styling, background — not just text
+  const bgType = edits.background_type ?? clip?.background_type ?? 'black'
+  const bgCustomColor = edits.background_color ?? clip?.background_color ?? '#111827'
+  const textColor = edits.text_color ?? clip?.text_color ?? '#ffffff'
+  const fontSize = edits.font_size ?? clip?.font_size ?? OVERLAY_FONT_SIZE
+
+  const renderedFontSize = clamp(fontSize, 14, 64)
   const textWidthRatio = clamp(OVERLAY_TEXT_WIDTH_PERCENT, 55, 96) / 100
   const textW = clamp(videoBox.w * textWidthRatio, 90, Math.max(90, videoBox.w - 8))
   const lines = wrapText(text, textW, renderedFontSize)
@@ -255,7 +261,7 @@ function buildRepurposePreview(clip) {
     w: textW,
   }
 
-  return { text, lines, videoBox, textBox, fontSize: renderedFontSize, align }
+  return { text, lines, videoBox, textBox, fontSize: renderedFontSize, align, textColor, bgType, bgCustomColor }
 }
 
 function makeOverlayImage({ lines, textBox, fontSize, textColor = '#ffffff', align = 'left' }) {
@@ -675,8 +681,6 @@ function RepurposeProjectCard({ project, onEdit, onDelete, selectable = false, s
   const title = clip.hook || project.title || 'Repurposed clip'
   const [videoReady, setVideoReady] = useState(false)
   const blurBgRef = useRef(null)
-  const bgType = clip.background_type || 'black'
-  const bgColor = bgType === 'white' ? '#ffffff' : bgType === 'custom' ? (clip.background_color || '#111827') : '#0a0a0f'
 
   useEffect(() => {
     setVideoReady(false)
@@ -684,6 +688,9 @@ function RepurposeProjectCard({ project, onEdit, onDelete, selectable = false, s
   
   // Combines coordinates logic and builds overlay PNG data
   const preview = useMemo(() => buildRepurposePreview(clip), [clip])
+  // Use preview's styling (which includes cached edits) instead of just clip data
+  const bgType = preview.bgType
+  const bgColor = bgType === 'white' ? '#ffffff' : bgType === 'custom' ? preview.bgCustomColor : '#0a0a0f'
   const textColor = overlayTextColor(bgType, bgColor)
   const fontReady = useOverlayFontReady()
   const overlayImage = useMemo(() => makeOverlayImage({
@@ -706,8 +713,8 @@ function RepurposeProjectCard({ project, onEdit, onDelete, selectable = false, s
         {
           clip_id: clip.clip_id,
           ratio: savedRatio === 'original' ? DEFAULT_CROP_RATIO : savedRatio,
-          bg_type: clip.background_type || 'black',
-          bg_custom_color: clip.background_color || '#111827',
+          bg_type: preview.bgType,
+          bg_custom_color: preview.bgCustomColor,
           blur_strength: Math.round(Number(clip.blur_opacity ?? 0.5) * 100),
           custom_text: preview.text,
           text_hidden: false,
