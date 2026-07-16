@@ -606,38 +606,56 @@ export default function Editor() {
   // Zoom is always uniform (a single scale factor) — this is what prevents the
   // video from ever looking stretched/squeezed. Width and height must change
   // TOGETHER when zooming, never independently.
-  const vw = clamp(pb.w * vtx.scale, 90, STAGE_W)
-  const vh = clamp(pb.h * vtx.scale, 90, STAGE_H)
+  let vw = clamp(pb.w * vtx.scale, 90, STAGE_W)
+  let vh = clamp(pb.h * vtx.scale, 90, STAGE_H)
 
   // Resolved positioning (free-drag positioning overrides standard presets)
-  const vl = videoDragPos
+  let vl = videoDragPos
     ? clamp(videoDragPos.x, -vw + 30, STAGE_W - 30)
     : clamp(pb.l + vtx.ox, -vw + 30, STAGE_W - 30)
-  const vt = videoDragPos
+  let vt = videoDragPos
     ? clamp(videoDragPos.y, -vh + 30, STAGE_H - 30)
     : clamp(pb.t + vtx.oy, -vh + 30, STAGE_H - 30)
+
+  // ── CROP FRAME ──
+  const cropInsets = vtx.cropInsets ?? { l: 0, t: 0, r: 0, b: 0 }
+  const MIN_FRAME_SIZE = 40
+  const insetL = clamp(cropInsets.l ?? 0, 0, Math.max(0, vw - MIN_FRAME_SIZE))
+  const insetT = clamp(cropInsets.t ?? 0, 0, Math.max(0, vh - MIN_FRAME_SIZE))
+  const insetR = clamp(cropInsets.r ?? 0, 0, Math.max(0, vw - MIN_FRAME_SIZE - insetL))
+  const insetB = clamp(cropInsets.b ?? 0, 0, Math.max(0, vh - MIN_FRAME_SIZE - insetT))
+  const frameL = vl + insetL
+  const frameT = vt + insetT
+  const frameW = vw - insetL - insetR
+  const frameH = vh - insetT - insetB
+
+  // ── CROP-AWARE ZOOM & PAN CONSTRAINTS ──
+  // When an active crop exists, re-constrain zoom/pan to frame bounds instead of stage bounds
+  const hasCrop = cropInsets && (cropInsets.l > 0 || cropInsets.t > 0 || cropInsets.r > 0 || cropInsets.b > 0)
+  if (hasCrop && frameW > 0 && frameH > 0) {
+    // Constrain zoom to stay within frame
+    vw = clamp(pb.w * vtx.scale, 90, frameW)
+    vh = clamp(pb.h * vtx.scale, 90, frameH)
+    // Recalculate frame bounds after zoom change
+    const newInsetL = clamp(cropInsets.l ?? 0, 0, Math.max(0, vw - MIN_FRAME_SIZE))
+    const newInsetT = clamp(cropInsets.t ?? 0, 0, Math.max(0, vh - MIN_FRAME_SIZE))
+    const newFrameL = vl + newInsetL
+    const newFrameT = vt + newInsetT
+    const newFrameW = vw - newInsetL - clamp(cropInsets.r ?? 0, 0, Math.max(0, vw - MIN_FRAME_SIZE - newInsetL))
+    const newFrameH = vh - newInsetT - clamp(cropInsets.b ?? 0, 0, Math.max(0, vh - MIN_FRAME_SIZE - newInsetT))
+    // Constrain pan to keep entire video box within frame bounds
+    vl = videoDragPos
+      ? clamp(videoDragPos.x, newFrameL - vw + 30, newFrameL + newFrameW - 30)
+      : clamp(pb.l + vtx.ox, newFrameL - vw + 30, newFrameL + newFrameW - 30)
+    vt = videoDragPos
+      ? clamp(videoDragPos.y, newFrameT - vh + 30, newFrameT + newFrameH - 30)
+      : clamp(pb.t + vtx.oy, newFrameT - vh + 30, newFrameT + newFrameH - 30)
+  }
 
   const videoLeft = vl
   const videoTop = vt
   const videoWidth = vw
   const videoHeight = vh
-
-  // ── CROP FRAME ──
-  // A real crop never resizes/rescales the video itself — it only masks part of
-  // it away. cropInsets are 4 independent distances (in stage px) that the crop
-  // handles push in from each side of the video's own (unchanged) box. The frame
-  // rectangle = the video box shrunk by these insets; the video underneath stays
-  // exactly the size/zoom it already was, so it can never look stretched.
-  const cropInsets = vtx.cropInsets ?? { l: 0, t: 0, r: 0, b: 0 }
-  const MIN_FRAME_SIZE = 40
-  const insetL = clamp(cropInsets.l ?? 0, 0, Math.max(0, videoWidth - MIN_FRAME_SIZE))
-  const insetT = clamp(cropInsets.t ?? 0, 0, Math.max(0, videoHeight - MIN_FRAME_SIZE))
-  const insetR = clamp(cropInsets.r ?? 0, 0, Math.max(0, videoWidth - MIN_FRAME_SIZE - insetL))
-  const insetB = clamp(cropInsets.b ?? 0, 0, Math.max(0, videoHeight - MIN_FRAME_SIZE - insetT))
-  const frameL = videoLeft + insetL
-  const frameT = videoTop + insetT
-  const frameW = videoWidth - insetL - insetR
-  const frameH = videoHeight - insetT - insetB
 
   const renderedFontSize = clamp(fontSize, 14, 64)
   const textWidthRatio = clamp(textWidthPercent, 55, 96) / 100
