@@ -17,9 +17,12 @@ export default function DashboardPage() {
 
   // DATA FETCHING: Triggers automatically when this page is opened.
   // - Queries your personal library list (`/projects/library`) and any running background renders (`/api/v2/repurpose/jobs`).
+  // - Runs both requests in parallel for faster load time
   useEffect(() => {
-    api.get('/projects/library').then(({ data }) => setProjects(data.projects || [])).catch(() => {})
-    api.get('/api/v2/repurpose/jobs').then(({ data }) => setJobs(data.jobs || [])).catch(() => {})
+    Promise.all([
+      api.get('/projects/library').then(({ data }) => setProjects(data.projects || [])).catch(() => {}),
+      api.get('/api/v2/repurpose/jobs').then(({ data }) => setJobs(data.jobs || [])).catch(() => {}),
+    ])
   }, [])
 
   // METRIC CALCULATIONS: Summarizes your library data.

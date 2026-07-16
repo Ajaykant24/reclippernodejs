@@ -980,10 +980,9 @@ export default function ProjectsPage() {
     }
   }, [])
 
-  // Initialization lifecycle hook: Runs queries automatically on first boot
+  // Initialization lifecycle hook: Runs queries automatically on first boot (in parallel for speed)
   useEffect(() => {
-    loadProjects()
-    loadJobs()
+    Promise.all([loadProjects(), loadJobs()])
   }, [loadProjects, loadJobs])
 
   // 3. BACKGROUND SCHEDULER POLLING:
