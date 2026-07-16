@@ -276,6 +276,9 @@ function makeOverlayImage({ lines, textBox, fontSize, textColor = '#ffffff', ali
     w: textBox.w * EXPORT_SCALE,
   }
   ctx.clearRect(0, 0, canvas.width, canvas.height)
+  // Enable high-quality text rendering for sharp output
+  ctx.imageSmoothingEnabled = false
+  ctx.textRendering = 'geometricPrecision'
   // Font styling configuration
   ctx.font = `400 ${exportFontSize}px ${OVERLAY_FONT_STACK}`
   ctx.textBaseline = 'top'

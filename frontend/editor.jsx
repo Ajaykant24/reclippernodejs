@@ -114,6 +114,9 @@ function makeOverlayImage({ lines, textBox, fontSize, color, align, style, shado
   if (!ctx) return ''
 
   ctx.clearRect(0, 0, canvas.width, canvas.height)
+  // Enable high-quality text rendering for sharp output
+  ctx.imageSmoothingEnabled = false
+  ctx.textRendering = 'geometricPrecision'
 
   // 1. Logo Watermark rendering layer
   if (logoImg) {
