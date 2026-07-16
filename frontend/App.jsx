@@ -52,6 +52,16 @@ function RequireAdmin({ children }) {
   return children
 }
 
+// REVERSE GUARD for the landing/sign-in/sign-up pages: a user who is ALREADY
+// logged in goes straight to their dashboard instead of seeing the marketing
+// page's "Sign In" buttons. This is what makes the installed home-screen app
+// (which cold-opens on '/') land in the workspace rather than LOOKING logged
+// out on every open — the session was persisting fine; nothing was using it.
+function RedirectIfAuthed({ children }) {
+  if (isAuthenticated()) return <Navigate to="/dashboard" replace />
+  return children
+}
+
 const workspaceNavItems = [
   { to: '/dashboard', icon: 'space_dashboard', label: 'Home' },
   { to: '/tool', icon: 'auto_awesome', label: 'Create' },
@@ -181,11 +191,11 @@ function Shell() {
       <main className="app-main">
         <Routes>
           {/* LANDING PAGE: / (homepage) */}
-          <Route path="/" element={<HomePage />} />
+          <Route path="/" element={<RedirectIfAuthed><HomePage /></RedirectIfAuthed>} />
           
           {/* USER SESSION VIEWS */}
-          <Route path="/signin" element={<SignInPage />} />
-          <Route path="/signup" element={<SignUpPage />} />
+          <Route path="/signin" element={<RedirectIfAuthed><SignInPage /></RedirectIfAuthed>} />
+          <Route path="/signup" element={<RedirectIfAuthed><SignUpPage /></RedirectIfAuthed>} />
           
           {/* PUBLIC MARKETING PAGE */}
           <Route path="/pricing" element={<PricingPage />} />

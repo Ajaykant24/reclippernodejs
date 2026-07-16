@@ -2,7 +2,7 @@
   "name": "Reclipper",
   "short_name": "Reclipper",
   "description": "Turn long videos into mobile-first viral clips with AI overlays and captions.",
-  "start_url": "/",
+  "start_url": "/dashboard",
   "scope": "/",
   "display": "standalone",
   "orientation": "portrait",
