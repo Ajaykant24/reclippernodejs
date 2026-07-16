@@ -659,12 +659,9 @@ export default function Editor() {
 
   const renderedFontSize = clamp(fontSize, 14, 64)
   const textWidthRatio = clamp(textWidthPercent, 55, 96) / 100
-  // Text width depends on alignment: left/right align extends nearly full frame width,
-  // center align uses ratio-based width to stay readable and centered.
-  const TEXT_SIDE_MARGIN = 12
-  const textBlockW = textAlign === 'center'
-    ? clamp(frameW * textWidthRatio, 90, Math.max(90, frameW - 8))
-    : clamp(frameW - TEXT_SIDE_MARGIN * 2, 90, frameW)
+  // Keep the overlay text width within the cropped video width so it never spills past the video.
+  // Small 4px right margin allows text to get closer to frame edge while maintaining breathing room.
+  const textBlockW = clamp(frameW * textWidthRatio, 90, Math.max(90, frameW - 4))
   const lines = useMemo(() => wrapText(customText, textBlockW, renderedFontSize), [customText, textBlockW, renderedFontSize])
 
   const lineH = renderedFontSize * 1.25
@@ -681,9 +678,9 @@ export default function Editor() {
   // block width is already capped to the frame's width above, so it's never
   // wider than (or positioned outside) the cropped frame regardless of align.
   const defaultTextX = textAlign === 'left'
-    ? frameL + TEXT_SIDE_MARGIN
+    ? frameL
     : textAlign === 'right'
-      ? frameL + frameW - textBlockW - TEXT_SIDE_MARGIN
+      ? frameL + frameW - textBlockW
       : frameL + frameW / 2 - textBlockW / 2
   const defaultTextY = frameT - TEXT_VIDEO_GAP - textBlockHeight
   const baseTextX = textDragPos ? textDragPos.x : defaultTextX
