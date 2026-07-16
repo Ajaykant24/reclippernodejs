@@ -81,8 +81,11 @@ export default function RepurposePage() {
   const ratio = DEFAULT_RATIO
   const intensity = DEFAULT_INTENSITY
 
-  // Color picker ref
+  // Color picker state
   const colorInputRef = useRef(null)
+  const [showColorPicker, setShowColorPicker] = useState(false)
+  const [pickerHue, setPickerHue] = useState(0)
+  const colorPickerRef = useRef(null)
 
   // Preset color management
   const [savedPresets, setSavedPresets] = useState(() => {
@@ -107,6 +110,53 @@ export default function RepurposePage() {
     const updated = savedPresets.filter(p => p.id !== id)
     setSavedPresets(updated)
     localStorage.setItem('bgColorPresets', JSON.stringify(updated))
+  }
+
+  // Color picker helpers
+  const hexToHsv = (hex) => {
+    const r = parseInt(hex.slice(1, 3), 16) / 255
+    const g = parseInt(hex.slice(3, 5), 16) / 255
+    const b = parseInt(hex.slice(5, 7), 16) / 255
+    const max = Math.max(r, g, b)
+    const min = Math.min(r, g, b)
+    const v = max
+    const s = max === 0 ? 0 : (max - min) / max
+    let h = 0
+    if (max !== min) {
+      const d = max - min
+      h = max === r ? ((g - b) / d + (g < b ? 6 : 0)) / 6 : max === g ? ((b - r) / d + 2) / 6 : ((r - g) / d + 4) / 6
+    }
+    return { h: h * 360, s, v }
+  }
+
+  const hsvToHex = (h, s, v) => {
+    h = h / 360
+    const i = Math.floor(h * 6)
+    const f = h * 6 - i
+    const p = v * (1 - s)
+    const q = v * (1 - f * s)
+    const t = v * (1 - (1 - f) * s)
+    let r, g, b
+    switch (i % 6) {
+      case 0: [r, g, b] = [v, t, p]; break
+      case 1: [r, g, b] = [q, v, p]; break
+      case 2: [r, g, b] = [p, v, t]; break
+      case 3: [r, g, b] = [p, q, v]; break
+      case 4: [r, g, b] = [t, p, v]; break
+      default: [r, g, b] = [v, p, q]
+    }
+    const toHex = (x) => Math.round(x * 255).toString(16).padStart(2, '0')
+    return `#${toHex(r)}${toHex(g)}${toHex(b)}`
+  }
+
+  const handleColorSquareClick = (e) => {
+    if (!colorPickerRef.current) return
+    const rect = colorPickerRef.current.getBoundingClientRect()
+    const x = (e.clientX - rect.left) / rect.width
+    const y = (e.clientY - rect.top) / rect.height
+    const s = Math.max(0, Math.min(1, x))
+    const v = Math.max(0, Math.min(1, 1 - y))
+    setBgCustomColor(hsvToHex(pickerHue, s, v))
   }
 
   // ── WORKFLOW LOGIC ──
@@ -484,36 +534,79 @@ export default function RepurposePage() {
                   })}
                 </div>
 
-                {/* Color picker + hex input */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
-                  <button
-                    type="button"
-                    onClick={() => colorInputRef.current?.click()}
-                    title="Click to pick a color"
-                    style={{
-                      width: 34, height: 34, borderRadius: 8, flexShrink: 0, background: bgCustomColor,
-                      border: `1px solid ${D.cardBorder}`, cursor: 'pointer', padding: 0,
-                    }}
-                  />
-                  <input
-                    ref={colorInputRef}
-                    type="color"
-                    value={bgCustomColor}
-                    onChange={e => setBgCustomColor(e.target.value)}
-                    style={{ display: 'none' }}
-                  />
-                  <div style={{ flex: 1 }}>
-                    <div style={{ fontSize: 11, fontWeight: 700, color: D.textMuted, marginBottom: 3 }}>Or enter hex code</div>
-                    <input
-                      type="text"
-                      value={bgCustomColor}
-                      onChange={e => { if (/^#[0-9a-fA-F]{0,6}$/.test(e.target.value)) setBgCustomColor(e.target.value) }}
-                      maxLength={7}
-                      placeholder="#111827"
-                      style={{ fontSize: 12, fontFamily: 'monospace', color: D.text, background: 'transparent', border: `1px solid ${D.cardBorder}`, borderRadius: 6, padding: '4px 8px', width: '100%', outline: 'none' }}
+                {/* Color picker toggle button */}
+                <button
+                  type="button"
+                  onClick={() => { setShowColorPicker(!showColorPicker); setPickerHue(hexToHsv(bgCustomColor).h) }}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: 8, width: '100%', padding: '8px 12px',
+                    marginBottom: 14, borderRadius: 8, background: 'rgba(255,255,255,0.03)', border: `1px solid ${D.cardBorder}`,
+                    cursor: 'pointer', color: D.text, fontSize: 12, fontWeight: 600,
+                  }}
+                >
+                  <div style={{ width: 28, height: 28, borderRadius: 6, background: bgCustomColor, border: `1px solid ${D.cardBorder}` }} />
+                  <span style={{ flex: 1, textAlign: 'left' }}>Click to pick color</span>
+                  <span style={{ fontSize: 14 }}>{showColorPicker ? '▼' : '▶'}</span>
+                </button>
+
+                {/* Custom color picker */}
+                {showColorPicker && (
+                  <div style={{ marginBottom: 14, padding: 12, borderRadius: 8, background: 'rgba(255,255,255,0.02)', border: `1px solid ${D.cardBorder}` }}>
+                    {/* Color square */}
+                    <div
+                      ref={colorPickerRef}
+                      onClick={handleColorSquareClick}
+                      style={{
+                        width: '100%', height: 200, marginBottom: 12, borderRadius: 6, cursor: 'crosshair',
+                        background: `linear-gradient(to right, white, hsl(${pickerHue}, 100%, 50%)),
+                                    linear-gradient(to top, black, transparent)`,
+                        border: `1px solid ${D.cardBorder}`, position: 'relative',
+                      }}
                     />
+
+                    {/* Hue slider */}
+                    <div style={{ marginBottom: 12 }}>
+                      <input
+                        type="range"
+                        min="0"
+                        max="360"
+                        value={pickerHue}
+                        onChange={e => setPickerHue(Number(e.target.value))}
+                        style={{
+                          width: '100%', height: 20, borderRadius: 10, cursor: 'pointer', padding: 0, margin: 0,
+                          appearance: 'none', background: `linear-gradient(to right,
+                            red, yellow, lime, cyan, blue, magenta, red)`,
+                          WebkitAppearance: 'none',
+                        }}
+                      />
+                      <style>{`
+                        input[type=range]::-webkit-slider-thumb {
+                          appearance: none; width: 16px; height: 16px; borderRadius: 50%;
+                          background: white; border: 2px solid #333; cursor: pointer;
+                          boxShadow: 0 0 4px rgba(255,255,255,0.3);
+                        }
+                        input[type=range]::-moz-range-thumb {
+                          width: 16px; height: 16px; borderRadius: 50%;
+                          background: white; border: 2px solid #333; cursor: pointer;
+                          boxShadow: 0 0 4px rgba(255,255,255,0.3);
+                        }
+                      `}</style>
+                    </div>
+
+                    {/* Hex input */}
+                    <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                      <input
+                        type="text"
+                        value={bgCustomColor}
+                        onChange={e => { if (/^#[0-9a-fA-F]{0,6}$/.test(e.target.value)) setBgCustomColor(e.target.value) }}
+                        maxLength={7}
+                        placeholder="#111827"
+                        style={{ flex: 1, fontSize: 12, fontFamily: 'monospace', color: D.text, background: 'transparent', border: `1px solid ${D.cardBorder}`, borderRadius: 6, padding: '6px 8px', outline: 'none' }}
+                      />
+                      <span style={{ fontSize: 12, color: D.textMuted }}>Hex</span>
+                    </div>
                   </div>
-                </div>
+                )}
 
                 {/* Save current color as preset */}
                 <div style={{ display: 'flex', gap: 8, marginBottom: savedPresets.length > 0 ? 14 : 0 }}>
