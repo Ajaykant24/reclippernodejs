@@ -81,6 +81,9 @@ export default function RepurposePage() {
   const ratio = DEFAULT_RATIO
   const intensity = DEFAULT_INTENSITY
 
+  // Color picker ref
+  const colorInputRef = useRef(null)
+
   // Preset color management
   const [savedPresets, setSavedPresets] = useState(() => {
     try {
@@ -481,11 +484,26 @@ export default function RepurposePage() {
                   })}
                 </div>
 
-                {/* Exact hex entry for any color */}
+                {/* Color picker + hex input */}
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
-                  <div style={{ width: 34, height: 34, borderRadius: 8, flexShrink: 0, background: bgCustomColor, border: `1px solid ${D.cardBorder}` }} />
+                  <button
+                    type="button"
+                    onClick={() => colorInputRef.current?.click()}
+                    title="Click to pick a color"
+                    style={{
+                      width: 34, height: 34, borderRadius: 8, flexShrink: 0, background: bgCustomColor,
+                      border: `1px solid ${D.cardBorder}`, cursor: 'pointer', padding: 0,
+                    }}
+                  />
+                  <input
+                    ref={colorInputRef}
+                    type="color"
+                    value={bgCustomColor}
+                    onChange={e => setBgCustomColor(e.target.value)}
+                    style={{ display: 'none' }}
+                  />
                   <div style={{ flex: 1 }}>
-                    <div style={{ fontSize: 11, fontWeight: 700, color: D.textMuted, marginBottom: 3 }}>Or enter a hex code</div>
+                    <div style={{ fontSize: 11, fontWeight: 700, color: D.textMuted, marginBottom: 3 }}>Or enter hex code</div>
                     <input
                       type="text"
                       value={bgCustomColor}
