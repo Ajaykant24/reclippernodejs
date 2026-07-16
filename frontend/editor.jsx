@@ -642,7 +642,7 @@ export default function Editor() {
   const renderedFontSize = clamp(fontSize, 14, 64)
   const textWidthRatio = clamp(textWidthPercent, 55, 96) / 100
   // Keep the overlay text width within the cropped video width so it never spills past the video.
-  const textBlockW = clamp(videoWidth * textWidthRatio, 90, Math.max(90, videoWidth - 8))
+  const textBlockW = clamp(frameW * textWidthRatio, 90, Math.max(90, frameW - 8))
   const lines = useMemo(() => wrapText(customText, textBlockW, renderedFontSize), [customText, textBlockW, renderedFontSize])
 
   const lineH = renderedFontSize * 1.25
@@ -652,18 +652,18 @@ export default function Editor() {
     : lineH
 
   // Coordinates calculators for title overlays
-  // Overlay stays reference-anchored to the cropped video top.
+  // Overlay stays reference-anchored to the cropped video frame.
   // More lines grow upward, so line 2/3 never cover the video.
   // The text block's horizontal anchor follows the chosen alignment: flush with
-  // the video's left edge, centered, or flush with the video's right edge. The
-  // block width is already capped to the video's width above, so it's never
-  // wider than (or positioned outside) the cropped video regardless of align.
+  // the frame's left edge, centered, or flush with the frame's right edge. The
+  // block width is already capped to the frame's width above, so it's never
+  // wider than (or positioned outside) the cropped frame regardless of align.
   const defaultTextX = textAlign === 'left'
-    ? videoLeft
+    ? frameL
     : textAlign === 'right'
-      ? videoLeft + videoWidth - textBlockW
-      : videoLeft + videoWidth / 2 - textBlockW / 2
-  const defaultTextY = videoTop - TEXT_VIDEO_GAP - textBlockHeight
+      ? frameL + frameW - textBlockW
+      : frameL + frameW / 2 - textBlockW / 2
+  const defaultTextY = frameT - TEXT_VIDEO_GAP - textBlockHeight
   const baseTextX = textDragPos ? textDragPos.x : defaultTextX
   const baseTextY = textDragPos ? textDragPos.y : defaultTextY
   const textX = clamp(baseTextX + textOffsetX, 12, STAGE_W - textBlockW - 12)
@@ -671,10 +671,10 @@ export default function Editor() {
   const ttx = { x: textX, y: textY, w: textBlockW }
 
   // Coordinates calculators for subtitles
-  const captionBoxW = clamp(videoWidth * 0.88, 170, STAGE_W - 24)
+  const captionBoxW = clamp(frameW * 0.88, 170, STAGE_W - 24)
   const captionBlockHeight = captionFontSize * 1.35
-  const defaultCaptionX = videoLeft + videoWidth / 2 - captionBoxW / 2
-  const defaultCaptionY = videoTop + videoHeight - captionBlockHeight - SUBTITLE_VIDEO_GAP
+  const defaultCaptionX = frameL + frameW / 2 - captionBoxW / 2
+  const defaultCaptionY = frameT + frameH - captionBlockHeight - SUBTITLE_VIDEO_GAP
   const captionX = clamp((captionDragPos ? captionDragPos.x : defaultCaptionX) + captionOffsetX, 12, STAGE_W - captionBoxW - 12)
   const captionY = clamp((captionDragPos ? captionDragPos.y : defaultCaptionY) + captionOffsetY, 12, STAGE_H - captionBlockHeight - 12)
   const captionTransform = { x: captionX, y: captionY, w: captionBoxW }
