@@ -724,16 +724,28 @@ function RepurposeProjectCard({ project, onEdit, onDelete, selectable = false, s
         },
       )
 
-      // Downloads compiled video directly in browser
+      // Downloads compiled video directly in browser using blob for reliability
       const fileUrl = resolveUrl(response.data.url)
       const downloadName = response.data.filename || `${clip.clip_id}-export.mp4`
+
+      // Fetch the file as a blob to avoid browser download dialogs
+      const fileResponse = await fetch(fileUrl)
+      const blob = await fileResponse.blob()
+
+      // Create download link from blob
+      const blobUrl = URL.createObjectURL(blob)
       const link = document.createElement('a')
-      link.href = fileUrl
+      link.href = blobUrl
       link.download = downloadName
       link.style.display = 'none'
       document.body.appendChild(link)
       link.click()
-      setTimeout(() => document.body.removeChild(link), 1000)
+
+      // Cleanup
+      setTimeout(() => {
+        document.body.removeChild(link)
+        URL.revokeObjectURL(blobUrl)
+      }, 1000)
     } catch (err) {
       // Extract the most useful error detail from the server response
       const serverDetail = err?.response?.data?.detail
