@@ -81,6 +81,31 @@ export default function RepurposePage() {
   const ratio = DEFAULT_RATIO
   const intensity = DEFAULT_INTENSITY
 
+  // Preset color management
+  const [savedPresets, setSavedPresets] = useState(() => {
+    try {
+      return JSON.parse(localStorage.getItem('bgColorPresets') || '[]')
+    } catch {
+      return []
+    }
+  })
+  const [presetName, setPresetName] = useState('')
+
+  const savePreset = () => {
+    if (!presetName.trim() || !bgCustomColor) return
+    const newPreset = { name: presetName.trim(), color: bgCustomColor, id: Date.now() }
+    const updated = [...savedPresets, newPreset]
+    setSavedPresets(updated)
+    localStorage.setItem('bgColorPresets', JSON.stringify(updated))
+    setPresetName('')
+  }
+
+  const deletePreset = (id) => {
+    const updated = savedPresets.filter(p => p.id !== id)
+    setSavedPresets(updated)
+    localStorage.setItem('bgColorPresets', JSON.stringify(updated))
+  }
+
   // ── WORKFLOW LOGIC ──
 
   const handleFileSelect = f => {
@@ -457,9 +482,9 @@ export default function RepurposePage() {
                 </div>
 
                 {/* Exact hex entry for any color */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
                   <div style={{ width: 34, height: 34, borderRadius: 8, flexShrink: 0, background: bgCustomColor, border: `1px solid ${D.cardBorder}` }} />
-                  <div>
+                  <div style={{ flex: 1 }}>
                     <div style={{ fontSize: 11, fontWeight: 700, color: D.textMuted, marginBottom: 3 }}>Or enter a hex code</div>
                     <input
                       type="text"
@@ -467,10 +492,76 @@ export default function RepurposePage() {
                       onChange={e => { if (/^#[0-9a-fA-F]{0,6}$/.test(e.target.value)) setBgCustomColor(e.target.value) }}
                       maxLength={7}
                       placeholder="#111827"
-                      style={{ fontSize: 12, fontFamily: 'monospace', color: D.text, background: 'transparent', border: `1px solid ${D.cardBorder}`, borderRadius: 6, padding: '4px 8px', width: 100, outline: 'none' }}
+                      style={{ fontSize: 12, fontFamily: 'monospace', color: D.text, background: 'transparent', border: `1px solid ${D.cardBorder}`, borderRadius: 6, padding: '4px 8px', width: '100%', outline: 'none' }}
                     />
                   </div>
                 </div>
+
+                {/* Save current color as preset */}
+                <div style={{ display: 'flex', gap: 8, marginBottom: savedPresets.length > 0 ? 14 : 0 }}>
+                  <input
+                    type="text"
+                    value={presetName}
+                    onChange={e => setPresetName(e.target.value)}
+                    onKeyPress={e => e.key === 'Enter' && savePreset()}
+                    placeholder="Preset name..."
+                    style={{ flex: 1, fontSize: 12, color: D.text, background: 'transparent', border: `1px solid ${D.cardBorder}`, borderRadius: 6, padding: '6px 8px', outline: 'none' }}
+                  />
+                  <button
+                    type="button"
+                    onClick={savePreset}
+                    disabled={!presetName.trim()}
+                    style={{
+                      fontSize: 12, fontWeight: 600, padding: '6px 12px', borderRadius: 6,
+                      background: presetName.trim() ? D.accent : 'rgba(255,255,255,0.05)',
+                      color: presetName.trim() ? '#000' : D.textMuted,
+                      border: `1px solid ${D.cardBorder}`, cursor: presetName.trim() ? 'pointer' : 'default',
+                      opacity: presetName.trim() ? 1 : 0.5,
+                    }}
+                  >
+                    Save
+                  </button>
+                </div>
+
+                {/* Show saved presets */}
+                {savedPresets.length > 0 && (
+                  <div>
+                    <div style={{ fontSize: 11, fontWeight: 700, color: D.textMuted, marginBottom: 8 }}>Your saved presets</div>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                      {savedPresets.map(preset => (
+                        <div
+                          key={preset.id}
+                          style={{
+                            display: 'flex', alignItems: 'center', gap: 6, padding: '4px 8px',
+                            borderRadius: 6, background: 'rgba(255,255,255,0.03)', border: `1px solid ${D.cardBorder}`,
+                            fontSize: 11,
+                          }}
+                        >
+                          <button
+                            type="button"
+                            onClick={() => setBgCustomColor(preset.color)}
+                            title={preset.color}
+                            style={{
+                              width: 18, height: 18, borderRadius: 4, flexShrink: 0, cursor: 'pointer',
+                              background: preset.color, border: `1px solid ${D.cardBorder}`, padding: 0,
+                            }}
+                          />
+                          <span style={{ color: D.text, maxWidth: 80, overflow: 'hidden', textOverflow: 'ellipsis' }}>{preset.name}</span>
+                          <button
+                            type="button"
+                            onClick={() => deletePreset(preset.id)}
+                            style={{
+                              fontSize: 10, fontWeight: 700, color: D.textMuted, background: 'none', border: 'none',
+                              cursor: 'pointer', padding: '0 4px',
+                            }}
+                          >
+                            ✕
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 
