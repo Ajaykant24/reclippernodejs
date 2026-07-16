@@ -10,8 +10,12 @@ import axios from 'axios'
 export const API_BASE = import.meta.env.VITE_API_URL || 'https://clippar.online/'
 
 // CLIENT INSTANCE: Configures a reusable connector with the base address preset.
+// withCredentials lets the browser send/receive the long-lived rc_token cookie
+// (set by the backend on login) alongside the bearer token — the cookie is what
+// survives a closed app/tab even if localStorage gets cleared/evicted.
 export const api = axios.create({
   baseURL: API_BASE,
+  withCredentials: true,
 })
 
 /**
@@ -72,25 +76,50 @@ export function clearSession() {
   localStorage.removeItem(TOKEN_KEY)
   localStorage.removeItem(USER_KEY)
   localStorage.removeItem(LAST_ACTIVE_KEY)
+  // Best-effort: also clear the long-lived server cookie (an HttpOnly cookie
+  // can't be removed from JS directly). Without this, a cleared session —
+  // manual logout OR the 6-day inactivity auto-logout — would just get
+  // silently revived by tryRestoreSession() on the next app open. Older,
+  // not-yet-rebuilt backends 404 here, which is fine to ignore.
+  api.post('/auth/logout').catch(() => {})
 }
 
 // Rolling inactivity check: any real use of the app resets the clock, so daily
 // (or even weekly-ish) use keeps someone logged in forever. Only actually
 // walking away for INACTIVITY_LIMIT_MS logs them out — once, on their next
 // visit or API call. Safe to call often; it's cheap and a no-op when logged out.
+// Wrapped in try/catch: a storage exception here (private-browsing quota limits,
+// storage disabled, etc.) must never break an API call or look like a logout.
 export function checkAndTrackActivity() {
-  if (!isAuthenticated()) return
-  const lastActive = Number(localStorage.getItem(LAST_ACTIVE_KEY) || 0)
-  const now = Date.now()
-  if (lastActive && now - lastActive > INACTIVITY_LIMIT_MS) {
-    clearSession()
-    const publicPaths = ['/', '/signin', '/signup']
-    if (typeof window !== 'undefined' && !publicPaths.includes(window.location.pathname)) {
-      window.location.href = '/signin?expired=1'
+  try {
+    if (!isAuthenticated()) return
+    const lastActive = Number(localStorage.getItem(LAST_ACTIVE_KEY) || 0)
+    const now = Date.now()
+    if (lastActive && now - lastActive > INACTIVITY_LIMIT_MS) {
+      clearSession()
+      const publicPaths = ['/', '/signin', '/signup']
+      if (typeof window !== 'undefined' && !publicPaths.includes(window.location.pathname)) {
+        window.location.href = '/signin?expired=1'
+      }
+      return
     }
-    return
-  }
-  localStorage.setItem(LAST_ACTIVE_KEY, String(now))
+    localStorage.setItem(LAST_ACTIVE_KEY, String(now))
+  } catch { /* storage unavailable/blocked — never let this break a request */ }
+}
+
+// Silent session revival: if this device has no valid local token (e.g. it was
+// closed and reopened and localStorage got cleared/evicted, or this is a fresh
+// browser context), ask the backend whether its long-lived rc_token cookie is
+// still valid. If so, restore the session without asking the user to sign in
+// again — the cookie survives exactly the situations localStorage doesn't.
+// Safe against an older, not-yet-rebuilt backend: a 404/network error here is
+// swallowed and the app just behaves as it does today (falls through to sign-in).
+export async function tryRestoreSession() {
+  if (isAuthenticated()) return // fast path — already logged in, no network call needed
+  try {
+    const { data } = await api.get('/auth/session')
+    if (data && data.token) saveSession(data)
+  } catch { /* no valid cookie, offline, or backend not yet updated — stay logged out */ }
 }
 
 // On load, re-affirm a valid stored session so the app treats it as long-lived.

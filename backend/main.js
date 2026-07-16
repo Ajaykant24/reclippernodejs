@@ -42,12 +42,50 @@ function updateJob(jobId, patch) {
   writeJson(JOBS_FILE, persisted)
 }
 
-function getCurrentUserFromToken(authorization) {
+// Tiny manual Cookie header parser — avoids adding a new dependency for one field.
+function parseCookies(cookieHeader) {
+  const out = {}
+  if (!cookieHeader) return out
+  cookieHeader.split(';').forEach(part => {
+    const idx = part.indexOf('=')
+    if (idx === -1) return
+    const key = part.slice(0, idx).trim()
+    const value = part.slice(idx + 1).trim()
+    if (key) {
+      try { out[key] = decodeURIComponent(value) } catch { out[key] = value }
+    }
+  })
+  return out
+}
+
+// Resolves the caller's identity. Prefers the bearer token (from localStorage on
+// the frontend); if that's missing/the 'local-user' placeholder (meaning the
+// browser had no real token — e.g. localStorage got cleared/evicted), falls back
+// to the long-lived rc_token cookie set at login, so a session set up on this
+// device keeps working even if localStorage doesn't survive an app/tab close.
+function getCurrentUserFromToken(authorization, cookieHeader) {
   let token = ''
   if (authorization && authorization.toLowerCase().startsWith('bearer ')) {
     token = authorization.split(' ', 2)[1].trim()
   }
+  if ((!token || token === 'local-user') && cookieHeader) {
+    const cookies = parseCookies(cookieHeader)
+    if (cookies.rc_token) token = cookies.rc_token
+  }
   return { user_id: token || 'local-user' }
+}
+
+// 1 year, matching the login cookie's Max-Age.
+const SESSION_COOKIE_MAX_AGE_MS = 365 * 24 * 60 * 60 * 1000
+
+function setSessionCookie(res, userId) {
+  res.cookie('rc_token', userId, {
+    httpOnly: true,
+    secure: true,
+    sameSite: 'none',
+    maxAge: SESSION_COOKIE_MAX_AGE_MS,
+    path: '/',
+  })
 }
 
 function passwordHash(password) {
@@ -211,6 +249,7 @@ app.post('/auth/signup', asyncRoute(async (req, res) => {
   // Approved (admin) accounts get a session immediately. Everyone else is pending
   // until an admin approves them — no token, so they can't enter the tool yet.
   if (approved) {
+    setSessionCookie(res, user.id)
     res.json(sessionFor(user))
   } else {
     res.json({ pending: true, message: 'Account created! An admin will review and approve it shortly.' })
@@ -234,16 +273,44 @@ app.post('/auth/signin', asyncRoute(async (req, res) => {
       ? 'Your account access has been declined. Please contact the admin.'
       : 'Your account is awaiting admin approval. You\'ll be able to sign in once approved.')
   }
+  setSessionCookie(res, user.id)
   res.json(sessionFor(user))
 }))
 
 app.post('/auth/demo', (req, res) => {
+  // Demo/local-user has no real account to persist across devices, so it
+  // deliberately gets no long-lived cookie — nothing to revive.
   res.json(sessionFor({
     id: 'local-user',
     email: 'demo@reclipper.local',
     name: 'Demo Clipper',
     plan: 'Scale',
   }))
+})
+
+// Silent session revival: called on app boot when the frontend has no valid
+// local token (e.g. localStorage was cleared/evicted). If the long-lived
+// rc_token cookie is still valid, returns a fresh session; otherwise 401.
+app.get('/auth/session', asyncRoute(async (req, res) => {
+  const cookies = parseCookies(req.headers.cookie)
+  const userId = cookies.rc_token
+  if (!userId || userId === 'local-user') throw httpError(401, 'No session cookie.')
+  const users = readJson(USERS_FILE, [])
+  const user = users.find(candidate => candidate.id === userId)
+  if (!user) throw httpError(401, 'Session no longer valid.')
+  const status = userStatus(user)
+  if (status !== 'approved') throw httpError(401, 'Account not approved.')
+  // Refresh the cookie's expiry too, so regular use keeps it rolling forward.
+  setSessionCookie(res, user.id)
+  res.json(sessionFor(user))
+}))
+
+// Clears the long-lived login cookie. The frontend can't remove an HttpOnly
+// cookie itself, so a real logout must call this — otherwise /auth/session
+// would silently revive the "logged out" session on the next app open.
+app.post('/auth/logout', (req, res) => {
+  res.clearCookie('rc_token', { httpOnly: true, secure: true, sameSite: 'none', path: '/' })
+  res.json({ ok: true })
 })
 
 // ── ADMIN: user management (approve/reject signups) ──
@@ -282,7 +349,7 @@ app.post('/admin/users/:id/approve', asyncRoute(async (req, res) => setUserStatu
 app.post('/admin/users/:id/reject', asyncRoute(async (req, res) => setUserStatus(req, res, 'rejected')))
 
 app.get('/projects', (req, res) => {
-  const user = getCurrentUserFromToken(req.get('authorization'))
+  const user = getCurrentUserFromToken(req.get('authorization'), req.headers.cookie)
   const projects = readJson(PROJECTS_FILE, []).filter(project => (
     project.user_id == null || project.user_id === user.user_id
   ))
@@ -290,7 +357,7 @@ app.get('/projects', (req, res) => {
 })
 
 app.get('/projects/library', (req, res) => {
-  const user = getCurrentUserFromToken(req.get('authorization'))
+  const user = getCurrentUserFromToken(req.get('authorization'), req.headers.cookie)
   const projects = readJson(PROJECTS_FILE, []).filter(project => (
     project.user_id == null || project.user_id === user.user_id
   ))
@@ -299,7 +366,7 @@ app.get('/projects/library', (req, res) => {
 
 app.delete('/projects/:projectId', (req, res, next) => {
   try {
-    const user = getCurrentUserFromToken(req.get('authorization'))
+    const user = getCurrentUserFromToken(req.get('authorization'), req.headers.cookie)
     const projects = readJson(PROJECTS_FILE, [])
     const kept = projects.filter(project => !(
       project.project_id === req.params.projectId
@@ -314,7 +381,7 @@ app.delete('/projects/:projectId', (req, res, next) => {
 })
 
 app.post('/projects/bulk-delete', (req, res) => {
-  const user = getCurrentUserFromToken(req.get('authorization'))
+  const user = getCurrentUserFromToken(req.get('authorization'), req.headers.cookie)
   const wanted = new Set(req.body.project_ids || [])
   const deleted = []
   const kept = []
