@@ -913,7 +913,7 @@ function RepurposeProjectCard({ project, onEdit, onDelete, selectable = false, s
         {/* Downloaded indicator */}
         {isDownloaded && !selectable && (
           <div style={{
-            position: 'absolute', top: 8, left: 8,
+            position: 'absolute', top: 8, right: 8,
             padding: '4px 8px', borderRadius: 4, fontSize: 11, fontWeight: 600,
             background: 'rgba(76,175,80,0.2)', color: '#4cb050', border: '1px solid rgba(76,175,80,0.4)',
           }}>
