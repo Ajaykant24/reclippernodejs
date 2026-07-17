@@ -673,7 +673,7 @@ function useOverlayFontReady() {
 //   - Hovers play: When you move your cursor over this card, it automatically plays the clip muted, giving you an instant dynamic feed review.
 //   - HTML5 overlay: Draws the generated AI hook title on top of the live video stream, previewing exactly how the exported mobile post will look.
 
-function RepurposeProjectCard({ project, onEdit, onDelete, selectable = false, selected = false, onSelect }) {
+function RepurposeProjectCard({ project, onEdit, onDelete, selectable = false, selected = false, onSelect, isDownloaded = false, markDownloaded, onRedownloadConfirm, forceRedownloadAllowed = false }) {
   const [downloading, setDownloading] = useState(false)
   const [downloadError, setDownloadError] = useState('')
   const clip = project.clips?.[0] || {}
@@ -704,6 +704,17 @@ function RepurposeProjectCard({ project, onEdit, onDelete, selectable = false, s
   // Triggers immediate download of the clip. Calls FastAPI overlay builder `/export/preview`
   const handleDownload = async () => {
     if (!clip?.clip_id || downloading) return
+
+    // Check if already downloaded and show confirmation
+    if (isDownloaded && !forceRedownloadAllowed) {
+      onRedownloadConfirm?.()
+      return
+    }
+
+    performDownload()
+  }
+
+  const performDownload = async () => {
     setDownloadError('')
     try {
       setDownloading(true)
@@ -756,6 +767,9 @@ function RepurposeProjectCard({ project, onEdit, onDelete, selectable = false, s
         document.body.removeChild(link)
         URL.revokeObjectURL(blobUrl)
       }, 1000)
+
+      // Mark as downloaded after successful download
+      markDownloaded?.()
     } catch (err) {
       // Extract the most useful error detail from the server response
       const serverDetail = err?.response?.data?.detail
@@ -896,12 +910,23 @@ function RepurposeProjectCard({ project, onEdit, onDelete, selectable = false, s
           </div>
         )}
 
+        {/* Downloaded indicator */}
+        {isDownloaded && !selectable && (
+          <div style={{
+            position: 'absolute', top: 8, left: 8,
+            padding: '4px 8px', borderRadius: 4, fontSize: 11, fontWeight: 600,
+            background: 'rgba(76,175,80,0.2)', color: '#4cb050', border: '1px solid rgba(76,175,80,0.4)',
+          }}>
+            ✓ Downloaded
+          </div>
+        )}
+
         {/* Buttons (Download and Edit) */}
         <div className="repurpose-project-actions">
           {/* Download button: Renders heavy export via FastAPI on click */}
           <button className="btn btn-glass btn-sm" type="button" onClick={selectable ? () => onSelect?.(project.project_id) : handleDownload} disabled={!selectable && (downloading || !clip?.clip_id)}>
-            <span className="material-symbols-outlined" style={{ fontSize: 16 }}>{selectable ? selected ? 'check_circle' : 'radio_button_unchecked' : 'download'}</span>
-            {selectable ? selected ? 'Selected' : 'Select' : downloading ? 'Exporting' : 'Download'}
+            <span className="material-symbols-outlined" style={{ fontSize: 16 }}>{selectable ? selected ? 'check_circle' : 'radio_button_unchecked' : isDownloaded ? 'check_circle' : 'download'}</span>
+            {selectable ? selected ? 'Selected' : 'Select' : downloading ? 'Exporting' : isDownloaded ? 'Downloaded' : 'Download'}
           </button>
           
           {/* Edit button: Navigates user to the advanced timeline video editor */}
@@ -960,7 +985,26 @@ export default function ProjectsPage() {
   const [selectMode, setSelectMode] = useState(false)            // Enables checkbox multi-select mode
   const [selectedProjectIds, setSelectedProjectIds] = useState(() => new Set()) // Set containing multi-checked project IDs
   const [bulkDeleting, setBulkDeleting] = useState(false)        // Tracks bulk deletion request status
+  const [downloadedClips, setDownloadedClips] = useState(() => {
+    try {
+      return new Set(JSON.parse(localStorage.getItem('downloadedClips') || '[]'))
+    } catch {
+      return new Set()
+    }
+  })
+  const [redownloadConfirm, setRedownloadConfirm] = useState(null)  // Clip pending redownload confirmation
+  const [redownloadAllowed, setRedownloadAllowed] = useState(new Set())  // Clips allowed to redownload
   const pollRef = useRef(null)
+
+  // Download tracking helpers
+  const markAsDownloaded = (clipId) => {
+    const updated = new Set(downloadedClips)
+    updated.add(clipId)
+    setDownloadedClips(updated)
+    localStorage.setItem('downloadedClips', JSON.stringify([...updated]))
+  }
+
+  const isClipDownloaded = (clipId) => downloadedClips.has(clipId)
 
   // 1. QUERY PROJECTS FROM SERVER
   const loadProjects = useCallback(async () => {
@@ -1305,6 +1349,10 @@ export default function ProjectsPage() {
               selectable={selectMode}
               selected={selectedProjectIds.has(project.project_id)}
               onSelect={toggleProjectSelection}
+              isDownloaded={isClipDownloaded(project.clips?.[0]?.clip_id)}
+              markDownloaded={() => markAsDownloaded(project.clips?.[0]?.clip_id)}
+              onRedownloadConfirm={() => setRedownloadConfirm(project.clips?.[0]?.clip_id)}
+              forceRedownloadAllowed={redownloadAllowed.has(project.clips?.[0]?.clip_id)}
             />
           ))}
           
@@ -1350,11 +1398,59 @@ export default function ProjectsPage() {
 
 
       {/* â”€â”€ SECTION F: POPUP MODAL WRAPPERS â”€â”€ */}
-      <DeleteModal 
-        project={deleteTarget} 
-        onConfirm={handleDeleteConfirm} 
-        onCancel={() => setDeleteTarget(null)} 
+      <DeleteModal
+        project={deleteTarget}
+        onConfirm={handleDeleteConfirm}
+        onCancel={() => setDeleteTarget(null)}
       />
+
+      {/* Redownload confirmation dialog */}
+      {redownloadConfirm && (
+        <div style={{
+          position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+          background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center',
+          zIndex: 1000,
+        }} onClick={() => setRedownloadConfirm(null)}>
+          <div style={{
+            background: '#1a1f2e', borderRadius: 12, padding: '24px',
+            maxWidth: 380, minWidth: 300, boxShadow: '0 10px 40px rgba(0,0,0,0.5)',
+            border: '1px solid rgba(255,255,255,0.1)',
+          }} onClick={e => e.stopPropagation()}>
+            <div style={{ fontSize: 16, fontWeight: 700, color: '#fff', marginBottom: 8 }}>Already Downloaded</div>
+            <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.7)', marginBottom: 20, lineHeight: 1.5 }}>
+              You've already downloaded this clip. Do you want to download it again?
+            </div>
+            <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+              <button
+                onClick={() => setRedownloadConfirm(null)}
+                style={{
+                  padding: '8px 16px', borderRadius: 6, fontSize: 13, fontWeight: 600,
+                  background: 'rgba(255,255,255,0.1)', color: '#fff', border: 'none',
+                  cursor: 'pointer',
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => {
+                  if (redownloadConfirm) {
+                    // Allow redownload for this clip
+                    setRedownloadAllowed(prev => new Set([...prev, redownloadConfirm]))
+                    setRedownloadConfirm(null)
+                  }
+                }}
+                style={{
+                  padding: '8px 16px', borderRadius: 6, fontSize: 13, fontWeight: 600,
+                  background: '#5ce1e6', color: '#000', border: 'none',
+                  cursor: 'pointer',
+                }}
+              >
+                Download Again
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Shimmer animation keyframes style wrapper */}
       <style>{`
