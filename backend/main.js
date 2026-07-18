@@ -430,6 +430,25 @@ app.post('/export/preview', asyncRoute(async (req, res) => {
     throw httpError(404, 'Clip file no longer on server — this happens when the server restarts without a persistent disk. Add a Render disk at /var/data and re-upload your video.')
   }
 
+  // Fast-path: if this is a simple download with no overlay image and the background
+  // settings match the original clip, just stream the clip directly (already encoded).
+  // This saves a full re-encode for unchanged downloads.
+  const isDefaultTransform = !payload.video_transform || (
+    payload.video_transform.x === 0
+    && payload.video_transform.y === 0
+    && payload.video_transform.w === 1080
+    && payload.video_transform.h === 1920
+  )
+  const backgroundsMatch = (
+    payload.bg_type === (matchedClip.background_type || 'black')
+    && (payload.bg_type !== 'blur' || payload.blur_strength === (matchedClip.blur_opacity ?? 0.5) * 100)
+    && (payload.bg_type !== 'custom' || payload.bg_custom_color === matchedClip.background_color)
+  )
+  if (isDefaultTransform && backgroundsMatch && !payload.overlay_image && payload.text_hidden) {
+    res.json({ url: matchedClip.clip_url, filename: sourceFilename })
+    return
+  }
+
   const inputs = ['-i', filePath]
   let filterComplex = ''
   let mapLabel = '[composite]'

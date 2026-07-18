@@ -113,12 +113,9 @@ async function runPipeline(
     } = require('./main')
 
     update(jobId, { status: 'finalizing', progress: 88 })
-    const freshenedPath = path.join(workDir, 'freshened.mp4')
-    const freshenResult = await freshenVideo(workingVideoPath, freshenedPath)
-    if (!freshenResult.success) {
-      console.warn('[repurpose_v2] freshenVideo failed, using unfreshened:', freshenResult.error)
-    }
-    const sourceForFinal = (freshenResult.success && fs.existsSync(freshenedPath)) ? freshenedPath : workingVideoPath
+    // Skip freshenVideo during creation to save time—the ~1ms uniqueness delay is not worth
+    // the full re-encode pass. Export/download can handle uniqueness if needed.
+    const sourceForFinal = workingVideoPath
 
     // The AI was started at the top and ran concurrently with the encode passes;
     // collect its result now (resolves instantly if it already finished).
