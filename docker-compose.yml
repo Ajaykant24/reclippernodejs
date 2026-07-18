@@ -1,0 +1,29 @@
+version: '3.8'
+
+services:
+  reclipper-backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: reclipper-api
+    ports:
+      - "${PORT:-8000}:${PORT:-8000}"
+    environment:
+      - PORT=${PORT:-8000}
+      - NODE_ENV=production
+      - STORAGE_DIR=${STORAGE_DIR:-/var/data}
+      - ADMIN_EMAILS=${ADMIN_EMAILS:-kantajay381@gmail.com}
+      - CORS_ORIGINS=${CORS_ORIGINS:-https://reclipper.vercel.app,https://www.reclipper.com}
+    volumes:
+      - reclipper-storage:${STORAGE_DIR:-/var/data}
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:${PORT:-8000}/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+volumes:
+  reclipper-storage:
+    driver: local
