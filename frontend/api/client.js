@@ -7,7 +7,7 @@ import axios from 'axios'
 
 // SERVER BASE URL: The web address where your Python FastAPI server is running.
 // - Falls back to the production backend if no environmental variable is set.
-export const API_BASE = import.meta.env.VITE_API_URL || 'https://api.clippar.online'
+export const API_BASE = import.meta.env.VITE_API_URL || 'https://clippar.online.api'
 
 // CLIENT INSTANCE: Configures a reusable connector with the base address preset.
 // withCredentials lets the browser send/receive the long-lived rc_token cookie
