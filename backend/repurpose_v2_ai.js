@@ -222,10 +222,22 @@ async function generateCaption(transcript, videoFile = null) {
   }
 }
 
+// Merge the user's original overlay into an overlay list: in 'original'/'exact'
+// mode it goes first (= becomes the default burned-in text), otherwise appended.
+function mergeOriginalOverlay(overlays, overlayMode, originalOverlay) {
+  if (!originalOverlay) return overlays
+  const rest = overlays.filter(t => t !== originalOverlay)
+  if (overlayMode === 'original' || overlayMode === 'exact') {
+    return [originalOverlay, ...rest]
+  }
+  return [...rest, originalOverlay]
+}
+
 async function runGeminiPipeline(videoPath, intensity = 'medium', ratio = '9:16', tone = 'relatable', overlayMode = 'generated', originalOverlay = '') {
   if (!hasGeminiKey()) {
     console.warn('[repurpose_v2_ai] GEMINI_API_KEY not set — using defaults')
-    return { context: {}, overlays: [...DEFAULT_OVERLAYS], caption: DEFAULT_CAPTION }
+    const overlays = mergeOriginalOverlay(overlayMode === 'exact' ? [] : [...DEFAULT_OVERLAYS], overlayMode, originalOverlay)
+    return { context: {}, overlays, caption: DEFAULT_CAPTION }
   }
 
   // Step 1: Transcribe with Whisper
@@ -278,20 +290,14 @@ async function runGeminiPipeline(videoPath, intensity = 'medium', ratio = '9:16'
     const caption = captionResult.status === 'fulfilled' ? captionResult.value : DEFAULT_CAPTION
 
     // Merge original overlay: always include it, position based on mode
-    if (originalOverlay) {
-      overlays = overlays.filter(t => t !== originalOverlay)
-      if (overlayMode === 'original' || overlayMode === 'exact') {
-        overlays = [originalOverlay, ...overlays]  // exact/original text sits on top = default
-      } else {
-        overlays = [...overlays, originalOverlay]  // original appended at end
-      }
-    }
+    overlays = mergeOriginalOverlay(overlays, overlayMode, originalOverlay)
 
     console.log(`[repurpose_v2_ai] Done — ${overlays.length} overlays, caption: ${caption.slice(0, 60)}...`)
     return { context: {}, overlays, caption }
   } catch (error) {
     console.error('[repurpose_v2_ai] Gemini failed:', error.message)
-    return { context: {}, overlays: [...DEFAULT_OVERLAYS], caption: DEFAULT_CAPTION }
+    const overlays = mergeOriginalOverlay(overlayMode === 'exact' ? [] : [...DEFAULT_OVERLAYS], overlayMode, originalOverlay)
+    return { context: {}, overlays, caption: DEFAULT_CAPTION }
   }
 }
 
