@@ -59,6 +59,71 @@ const D = {
   radius:     12,
 }
 
+// ── AUTO OVERLAY DETECTION (OCR) ──
+// - Purpose: when a clip is selected, read the big on-screen overlay text straight from the
+//   video frames (in the browser, via tesseract.js) so clippers don't have to retype it.
+// - Best-effort: any failure just leaves the input empty and the clipper types as before.
+
+// Draws the video frame at `time` (seconds) onto a canvas sized for OCR speed.
+function grabVideoFrame(video, time) {
+  return new Promise((resolve, reject) => {
+    const onSeeked = () => {
+      try {
+        const scale = Math.min(1, 960 / (video.videoWidth || 960))
+        const canvas = document.createElement('canvas')
+        canvas.width = Math.max(1, Math.round(video.videoWidth * scale))
+        canvas.height = Math.max(1, Math.round(video.videoHeight * scale))
+        canvas.getContext('2d').drawImage(video, 0, 0, canvas.width, canvas.height)
+        resolve(canvas)
+      } catch (err) { reject(err) }
+    }
+    video.addEventListener('seeked', onSeeked, { once: true })
+    video.addEventListener('error', () => reject(new Error('seek failed')), { once: true })
+    video.currentTime = time
+  })
+}
+
+// Keeps only OCR lines that look like real words (drops noise like stray symbols).
+function cleanOcrText(raw) {
+  const lines = String(raw || '').split('\n').map(l => l.trim()).filter(Boolean)
+  const good = lines.filter(line => {
+    const letters = (line.match(/[a-z0-9]/gi) || []).length
+    return line.length >= 3 && letters / line.length >= 0.5
+  })
+  return good.join(' ').replace(/\s+/g, ' ').trim()
+}
+
+// Reads the on-screen text from a selected video file. Checks an early frame first
+// (overlays usually show from the very start) and falls back to a later one.
+async function detectOverlayTextFromVideo(file) {
+  const url = URL.createObjectURL(file)
+  const video = document.createElement('video')
+  video.muted = true
+  video.playsInline = true
+  video.preload = 'auto'
+  try {
+    video.src = url
+    await new Promise((resolve, reject) => {
+      video.addEventListener('loadedmetadata', resolve, { once: true })
+      video.addEventListener('error', () => reject(new Error('could not load video')), { once: true })
+    })
+    const duration = Number.isFinite(video.duration) ? video.duration : 1
+    const times = [Math.min(0.6, duration / 2), Math.min(2.5, Math.max(0.1, duration - 0.2))]
+    const { default: Tesseract } = await import('tesseract.js')
+    let best = ''
+    for (const t of times) {
+      const frame = await grabVideoFrame(video, t)
+      const { data } = await Tesseract.recognize(frame, 'eng')
+      const text = cleanOcrText(data && data.text)
+      if (text.length > best.length) best = text
+      if (best.length >= 8) break // early frame already gave a solid read
+    }
+    return best
+  } finally {
+    URL.revokeObjectURL(url)
+  }
+}
+
 export default function RepurposePage() {
   const nav = useNavigate()
   const fileRef = useRef(null) // Pointer to trigger click actions on hidden HTML input element
@@ -78,6 +143,13 @@ export default function RepurposePage() {
   const [overlayMode, setOverlayMode] = useState('generated')
   const [originalOverlay, setOriginalOverlay] = useState('')
   const [textAlign, setTextAlign] = useState('left')
+
+  // Auto overlay detection (OCR) state. ocrJobRef versions each detection run so a
+  // stale result (from a replaced/removed file) can never fill the input late.
+  const [ocrStatus, setOcrStatus] = useState('')
+  const ocrJobRef = useRef(0)
+  const overlayValRef = useRef('')
+  overlayValRef.current = originalOverlay
   const ratio = DEFAULT_RATIO
   const intensity = DEFAULT_INTENSITY
 
@@ -166,6 +238,23 @@ export default function RepurposePage() {
     if (!f) return
     setFile(f)
     setPhase('settings')
+    autoDetectOverlay(f) // best-effort: pre-fills the overlay input from the video itself
+  }
+
+  const autoDetectOverlay = async f => {
+    // Purpose: OCR the selected video in the browser and pre-fill "Custom Overlay Text"
+    // so clippers don't have to retype the original video's on-screen hook.
+    const jobId = ++ocrJobRef.current
+    setOcrStatus('reading')
+    try {
+      const text = await detectOverlayTextFromVideo(f)
+      if (ocrJobRef.current !== jobId) return // a newer file was picked — drop this result
+      if (text && !overlayValRef.current.trim()) { // never overwrite what the clipper typed
+        setOriginalOverlay(text)
+        setOverlayMode('original')
+      }
+    } catch { /* OCR is best-effort — the clipper can still type the text manually */ }
+    if (ocrJobRef.current === jobId) setOcrStatus('')
   }
 
   const startProcessing = async () => {
@@ -197,12 +286,14 @@ export default function RepurposePage() {
     }
   }
 
-  const reset = () => { 
+  const reset = () => {
     // Restores original blank upload form state
     setPhase('input')
     setFile(null)
     setError('')
-    setSubmitting(false) 
+    setSubmitting(false)
+    ocrJobRef.current++ // invalidate any in-flight overlay detection
+    setOcrStatus('')
   }
 
   // ── INLINE ACCENT STYLINGS GENERATORS ──
@@ -719,9 +810,11 @@ export default function RepurposePage() {
               }}
             />
             <div style={{ fontSize: 12, color: D.textMuted, paddingTop: 6, marginBottom: 14 }}>
-              {originalOverlay.trim()
-                ? 'Your text will be applied to the video. AI overlays are also available in the editor.'
-                : 'AI will pick the most relatable hook from the generated overlays as default.'}
+              {ocrStatus === 'reading' && !originalOverlay.trim()
+                ? 'Reading on-screen text from your video — it will fill in here automatically…'
+                : originalOverlay.trim()
+                  ? 'Your text will be applied to the video. AI overlays are also available in the editor.'
+                  : 'AI will pick the most relatable hook from the generated overlays as default.'}
             </div>
 
             {/* Overlay text alignment — applies to the generated clip; can still be changed later in the editor. */}
