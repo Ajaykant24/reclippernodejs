@@ -33,7 +33,7 @@
   --accent-gradient: linear-gradient(135deg, #ff6f56 0%, #ff5a3d 55%, #e6431f 100%);
   --text-primary: #f5f5fa;
   --text-secondary: #9797ae;
-  --text-muted: #5c5c72;
+  --text-muted: #7b7b95;
   --border: #2a2a38;
   --border-light: #1d1d28;
   --success: #22c55e;
@@ -2065,7 +2065,22 @@ textarea.glass-input {
   border: 1px solid var(--border);
   border-radius: 28px;
   padding: 16px;
-  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.4);
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.4), 0 0 80px var(--accent-glow);
+  animation: phoneFloat 6s ease-in-out infinite;
+  will-change: transform;
+}
+
+@keyframes phoneFloat {
+  0%, 100% { transform: translateY(0) rotate(-1deg); }
+  50% { transform: translateY(-10px) rotate(1deg); }
+}
+
+/* Gradient text — for the one key phrase in a heading, nothing else. */
+.text-gradient {
+  background: var(--accent-gradient);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
 }
 
 .phone-topbar {

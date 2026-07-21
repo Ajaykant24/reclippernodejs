@@ -45,7 +45,10 @@ export default function PricingPage() {
               which gives it a glowing outline or distinct background in index.css (.pricing-plan.featured).
           */
           <article className={`pricing-plan${index === 1 ? ' featured' : ''}`} key={plan[0]}>
-            
+
+            {/* "Most popular" chip on the featured middle tier */}
+            {index === 1 ? <span className="chip chip-accent" style={{ alignSelf: 'flex-start' }}>Most popular</span> : null}
+
             {/* Plan Name Tier (Starter / Pro / Scale) */}
             <h2>{plan[0]}</h2>
             

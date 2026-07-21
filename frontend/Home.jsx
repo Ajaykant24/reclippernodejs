@@ -43,7 +43,7 @@ export default function HomePage() {
         {/* LEFT COLUMN: Main sales text copy and call-to-action links */}
         <div className="premium-hero-copy">
           <span className="eyebrow">Creator operating room</span>
-          <h1>Clip, caption, and publish without friction.</h1>
+          <h1>Clip, caption, and publish <span className="text-gradient">without friction.</span></h1>
           <p>Reclipper turns source video into mobile-first reels with AI overlay hooks, editable previews, and a clean export handoff built for daily posting.</p>
           
           {/* CTA ACTION BUTTONS: Link to registration or direct tool launch. */}

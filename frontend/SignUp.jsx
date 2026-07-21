@@ -60,13 +60,9 @@ export default function SignUpPage() {
           <>
             <span className="eyebrow">Almost there</span>
             <h1>Request received</h1>
-            <div style={{
-              display: 'flex', alignItems: 'flex-start', gap: 10, margin: '4px 0 8px',
-              padding: '14px 16px', borderRadius: 12,
-              background: 'rgba(45, 212, 191, 0.1)', border: '1px solid rgba(45, 212, 191, 0.3)',
-            }}>
-              <span className="material-symbols-outlined" style={{ color: 'var(--teal)', fontSize: 22 }}>hourglass_top</span>
-              <span style={{ fontSize: 14, lineHeight: 1.5, color: 'var(--text-primary)' }}>{pending}</span>
+            <div className="info-box" style={{ margin: '4px 0 8px' }}>
+              <span className="material-symbols-outlined" style={{ fontSize: 22 }}>hourglass_top</span>
+              <span style={{ color: 'var(--text-primary)', fontWeight: 500 }}>{pending}</span>
             </div>
             <p>You'll be able to sign in as soon as an admin approves your account.</p>
             <Link className="btn btn-solid-white btn-lg" to="/signin">Go to Sign in</Link>

@@ -79,7 +79,7 @@ export default function SignInPage() {
 
         {/* Shown only when redirected here by the rolling inactivity auto-logout. */}
         {sessionExpired && !error ? (
-          <div className="error-box" style={{ background: 'rgba(45, 212, 191, 0.1)', borderColor: 'rgba(45, 212, 191, 0.3)', color: 'var(--teal)' }}>
+          <div className="info-box">
             You were signed out after a few days of inactivity. Sign in again to continue.
           </div>
         ) : null}
