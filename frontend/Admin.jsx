@@ -5,10 +5,11 @@
 import { useCallback, useEffect, useState } from 'react'
 import { api } from './api/client'
 
-const STATUS_META = {
-  pending: { label: 'Pending', color: '#ff9700', bg: 'rgba(255, 151, 0, 0.12)' },
-  approved: { label: 'Approved', color: '#22c55e', bg: 'rgba(34, 197, 94, 0.12)' },
-  rejected: { label: 'Rejected', color: '#ef4444', bg: 'rgba(239, 68, 68, 0.12)' },
+// Status badges map onto the shared .chip variants (index.css) — one palette app-wide.
+const STATUS_CHIP = {
+  pending: { label: 'Pending', cls: 'chip chip-warn' },
+  approved: { label: 'Approved', cls: 'chip chip-ok' },
+  rejected: { label: 'Rejected', cls: 'chip chip-danger' },
 }
 
 function formatDate(iso) {
@@ -70,34 +71,39 @@ export default function AdminPage() {
       {error ? <div className="error-box" style={{ marginBottom: 16 }}>{error}</div> : null}
 
       {loading ? (
-        <p style={{ color: 'var(--text-secondary)' }}>Loading…</p>
+        /* SKELETON ROWS: hold the list layout while users load — no bare "Loading…" text. */
+        <div className="stack" style={{ gap: 10 }}>
+          {[0, 1, 2].map(i => (
+            <div key={i} className="surface" style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '14px 16px' }}>
+              <div style={{ flex: 1 }}>
+                <div className="skeleton" style={{ width: 140, height: 15, marginBottom: 8 }} />
+                <div className="skeleton" style={{ width: 200, height: 12 }} />
+              </div>
+              <div className="skeleton" style={{ width: 84, height: 32, borderRadius: 10 }} />
+            </div>
+          ))}
+        </div>
       ) : users.length === 0 ? (
-        <div className="glass section-pad" style={{ textAlign: 'center', color: 'var(--text-secondary)' }}>
-          No users yet.
+        <div className="empty-state surface">
+          <div className="empty-icon"><span className="material-symbols-outlined">group</span></div>
+          <h3>No users yet</h3>
+          <p>New signups will appear here waiting for your approval.</p>
         </div>
       ) : (
-        <div className="stack" style={{ gap: 10 }}>
+        <div className="stack stagger" style={{ gap: 10 }}>
           {users.map(user => {
-            const meta = STATUS_META[user.status] || STATUS_META.pending
+            const chip = STATUS_CHIP[user.status] || STATUS_CHIP.pending
             const isAdmin = user.role === 'admin'
             return (
-              <div key={user.id} className="glass" style={{
+              <div key={user.id} className="surface" style={{
                 display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap',
                 padding: '14px 16px',
               }}>
                 <div style={{ flex: 1, minWidth: 180 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
                     <strong style={{ fontSize: 15 }}>{user.name}</strong>
-                    <span style={{
-                      fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 999,
-                      color: meta.color, background: meta.bg,
-                    }}>{meta.label}</span>
-                    {isAdmin ? (
-                      <span style={{
-                        fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 999,
-                        color: 'var(--accent)', background: 'var(--accent-glow)',
-                      }}>Admin</span>
-                    ) : null}
+                    <span className={chip.cls}>{chip.label}</span>
+                    {isAdmin ? <span className="chip chip-accent">Admin</span> : null}
                   </div>
                   <div style={{ fontSize: 13, color: 'var(--text-secondary)', marginTop: 2 }}>{user.email}</div>
                   {user.created_at ? (

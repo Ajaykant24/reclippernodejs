@@ -102,7 +102,7 @@ export default function HomePage() {
         - 3-column list explaining product capabilities with custom Google Material icons.
         - Styled by .premium-feature-grid in index.css.
       */}
-      <section className="premium-feature-grid mobile-feature-list">
+      <section className="premium-feature-grid mobile-feature-list stagger">
         
         {/* Column 1: AI Hooks */}
         <article>

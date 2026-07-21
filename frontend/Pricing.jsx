@@ -36,7 +36,7 @@ export default function PricingPage() {
         - Layout that aligns cards in columns.
         - Styled by .pricing-grid and .premium-pricing in index.css.
       */}
-      <div className="pricing-grid premium-pricing mobile-card-stack">
+      <div className="pricing-grid premium-pricing mobile-card-stack stagger">
         {/* LOOPS THROUGH PLAN LIST: Takes each plan array entry and builds a card. */}
         {plans.map((plan, index) => (
           /* 

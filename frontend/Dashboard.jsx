@@ -11,7 +11,8 @@ export default function DashboardPage() {
   // STATE MANAGEMENT: Local memory variables to store data loaded from the backend.
   const [projects, setProjects] = useState([])
   const [jobs, setJobs] = useState([])
-  
+  const [loading, setLoading] = useState(true) // skeletons hold the layout until data lands
+
   // SESSION USER: Retrieves current user profile from cache to display personalized welcome message.
   const user = JSON.parse(localStorage.getItem('user') || '{}')
 
@@ -22,15 +23,19 @@ export default function DashboardPage() {
     Promise.all([
       api.get('/projects/library').then(({ data }) => setProjects(data.projects || [])).catch(() => {}),
       api.get('/api/v2/repurpose/jobs').then(({ data }) => setJobs(data.jobs || [])).catch(() => {}),
-    ])
+    ]).finally(() => setLoading(false))
   }, [])
 
   // METRIC CALCULATIONS: Summarizes your library data.
   // 1. Clips: Summarizes the total number of short viral clips across all projects.
   const clips = projects.reduce((total, project) => total + (project.clips?.length || 0), 0)
-  
+
   // 2. Active Jobs: Filters any video rendering job that is currently running (not done, failed, or cancelled).
   const activeJobs = jobs.filter(job => !['done', 'failed', 'interrupted'].includes(job.status)).length
+
+  // 3. Ready clips: everything already exported/complete — a real stat, not a placeholder.
+  const readyClips = projects.reduce(
+    (total, project) => total + (project.clips?.filter(c => c.status !== 'failed').length || 0), 0)
 
   return (
     /* 
@@ -64,15 +69,27 @@ export default function DashboardPage() {
         - Four cards displaying your workspace statistics.
         - Styled by .metric-grid and .premium-metrics in index.css.
       */}
-      <section className="metric-grid premium-metrics mobile-metric-strip">
-        {/* Card 1: Total Projects Count */}
-        <div><strong>{projects.length}</strong><span>Projects</span></div>
-        {/* Card 2: Sum of Clips Generated */}
-        <div><strong>{clips}</strong><span>Generated clips</span></div>
-        {/* Card 3: Currently rendering queues */}
-        <div><strong>{activeJobs}</strong><span>Active renders</span></div>
-        {/* Card 4: Feature status banner */}
-        <div><strong>Live</strong><span>Caption workflow</span></div>
+      <section className="metric-grid premium-metrics mobile-metric-strip stagger">
+        {loading ? (
+          /* SKELETON TILES: hold the exact layout so numbers never "pop in" with a shift. */
+          [0, 1, 2, 3].map(i => (
+            <div key={i}>
+              <strong><span className="skeleton" style={{ display: 'inline-block', width: 36, height: 26 }} /></strong>
+              <span className="skeleton" style={{ display: 'inline-block', width: 88, height: 12 }} />
+            </div>
+          ))
+        ) : (
+          <>
+            {/* Card 1: Total Projects Count */}
+            <div className="anim-fade-up"><strong>{projects.length}</strong><span>Projects</span></div>
+            {/* Card 2: Sum of Clips Generated */}
+            <div className="anim-fade-up"><strong>{clips}</strong><span>Generated clips</span></div>
+            {/* Card 3: Currently rendering queues */}
+            <div className="anim-fade-up"><strong>{activeJobs}</strong><span>Active renders</span></div>
+            {/* Card 4: Clips ready to post */}
+            <div className="anim-fade-up"><strong>{readyClips}</strong><span>Ready to post</span></div>
+          </>
+        )}
       </section>
 
       {/* 

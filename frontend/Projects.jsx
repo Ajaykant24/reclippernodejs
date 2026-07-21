@@ -1306,7 +1306,7 @@ export default function ProjectsPage() {
       */}
       {loading ? (
         /* LOADING GRID */
-        <div className="bento-grid">
+        <div className="bento-grid stagger">
           {Array.from({ length: 6 }).map((_, i) => <BentoSkeleton key={i} />)}
         </div>
       ) : activeProjects.length === 0 && !(activeType === 'repurpose' && hasActiveJobs) ? (
@@ -1369,7 +1369,7 @@ export default function ProjectsPage() {
         </div>
       ) : (
         /* STANDARD LONG-TO-SHORT BENTO GRID folders dashboard */
-        <div className="bento-grid">
+        <div className="bento-grid stagger">
           
           {longToShortProjects.map(project => (
             <BentoCard

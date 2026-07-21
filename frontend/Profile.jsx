@@ -60,15 +60,15 @@ export default function ProfilePage() {
           </div>
         </article>
 
-        {/* 
-          PANEL 2: Billing & Features Metadata.
-          - Displays user plan name (defaults to 'Pro') and description of unlocked platform features.
+        {/*
+          PANEL 2: Workspace access summary.
+          - Shows the account's real plan when the server provides one; otherwise
+            describes what this workspace includes (no fake "Pro" placeholder).
         */}
         <article className="profile-panel">
-          <span className="eyebrow">Current plan</span>
-          {/* Displays plan (Starter, Pro, Scale) */}
-          <h2>{user.plan || 'Pro'}</h2>
-          <p>Gemini overlays, Instagram captions, editor, projects, mobile preview, and export review.</p>
+          <span className="eyebrow">{user.plan ? 'Current plan' : 'Workspace access'}</span>
+          <h2>{user.plan || 'Creator workspace'}</h2>
+          <p>AI overlays, Instagram captions, editor, projects, mobile preview, and export review.</p>
         </article>
 
       </section>
