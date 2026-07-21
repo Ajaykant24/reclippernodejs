@@ -40,6 +40,20 @@ const BACKGROUND_SWATCHES = [
 // a canvas). Ratio can still be changed inside the editor if a user wants.
 const DEFAULT_RATIO = 'original'
 
+// ── SAVED DEFAULT BACKGROUND ──
+// Long-pressing a background option saves it as this device's default, applied
+// automatically on every new clip. No saved default = Black (the original behavior).
+const DEFAULT_BG_KEY = 'rc_default_bg'
+
+function loadDefaultBg() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(DEFAULT_BG_KEY) || 'null')
+    return saved && ['black', 'white', 'blur', 'custom'].includes(saved.type) ? saved : null
+  } catch {
+    return null
+  }
+}
+
 // ── INTENSITY MODIFIERS ──
 // - Determines how copyright-safe / heavily formatted the smart crop is.
 const DEFAULT_INTENSITY = 'medium'
@@ -139,10 +153,34 @@ export default function RepurposePage() {
   const [error, setError] = useState('')
   const [submitting, setSubmitting] = useState(false) // Blocks clicks during pending uploads
 
-  // Settings customizer states
-  const [bgType, setBgType] = useState('black')
-  const [bgCustomColor, setBgCustomColor] = useState('#111827')
-  const [blurOpacity, setBlurOpacity] = useState(0.5)
+  // Settings customizer states — seeded from the saved default background (if any),
+  // so every new clip starts with the clipper's own preferred canvas.
+  const [bgType, setBgType] = useState(() => loadDefaultBg()?.type || 'black')
+  const [bgCustomColor, setBgCustomColor] = useState(() => loadDefaultBg()?.color || '#111827')
+  const [blurOpacity, setBlurOpacity] = useState(() => loadDefaultBg()?.blurOpacity ?? 0.5)
+  // Which option is marked as default (shows the ★ badge); long-press to change.
+  const [defaultBgType, setDefaultBgType] = useState(() => loadDefaultBg()?.type || 'black')
+  const [defaultSavedMsg, setDefaultSavedMsg] = useState('')
+  const longPressRef = useRef({ timer: null, fired: false })
+
+  // Long-press handling on background options: hold ~½ second to save as default.
+  const startBgLongPress = opt => {
+    longPressRef.current.fired = false
+    clearTimeout(longPressRef.current.timer)
+    longPressRef.current.timer = setTimeout(() => {
+      longPressRef.current.fired = true
+      const payload = { type: opt.id }
+      if (opt.id === 'custom') payload.color = bgCustomColor
+      if (opt.id === 'blur') payload.blurOpacity = blurOpacity
+      try { localStorage.setItem(DEFAULT_BG_KEY, JSON.stringify(payload)) } catch { /* storage full/blocked */ }
+      setDefaultBgType(opt.id)
+      setBgType(opt.id)
+      setDefaultSavedMsg(`${opt.label} saved as your default background`)
+      setTimeout(() => setDefaultSavedMsg(''), 2400)
+      if (navigator.vibrate) navigator.vibrate(30) // small haptic tick on phones
+    }, 550)
+  }
+  const cancelBgLongPress = () => clearTimeout(longPressRef.current.timer)
   const [overlayMode, setOverlayMode] = useState('generated')
   const [originalOverlay, setOriginalOverlay] = useState('')
   const [textAlign, setTextAlign] = useState('left')
@@ -587,17 +625,49 @@ export default function RepurposePage() {
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(132px, 1fr))', gap: 8 }}>
               {BG_OPTS.map(o => {
                 const preview = o.id === 'custom' ? bgCustomColor : o.preview
+                const isDefault = defaultBgType === o.id
                 return (
-                  <button key={o.id} type="button" onClick={() => setBgType(o.id)} style={optBtn(bgType === o.id)}>
+                  <button
+                    key={o.id}
+                    type="button"
+                    onClick={() => {
+                      // A completed long-press must not ALSO fire the tap action.
+                      if (longPressRef.current.fired) { longPressRef.current.fired = false; return }
+                      setBgType(o.id)
+                    }}
+                    onMouseDown={() => startBgLongPress(o)}
+                    onMouseUp={cancelBgLongPress}
+                    onMouseLeave={cancelBgLongPress}
+                    onTouchStart={() => startBgLongPress(o)}
+                    onTouchEnd={cancelBgLongPress}
+                    onTouchMove={cancelBgLongPress}
+                    onContextMenu={e => e.preventDefault()}
+                    style={{ ...optBtn(bgType === o.id), position: 'relative' }}
+                  >
                     {/* Small rounded preview box colored dynamically */}
                     <span style={{
                       width: 18, height: 18, borderRadius: 5, flexShrink: 0,
                       background: preview, border: `1px solid ${D.cardBorder}`, display: 'inline-block',
                     }} />
                     {o.label}
+                    {/* ★ marks the saved default background */}
+                    {isDefault ? (
+                      <span style={{
+                        position: 'absolute', top: -7, right: -7,
+                        width: 18, height: 18, borderRadius: '50%',
+                        background: D.accent, color: '#fff',
+                        fontSize: 11, lineHeight: '18px', textAlign: 'center',
+                        boxShadow: '0 1px 4px rgba(60,45,30,0.3)',
+                      }}>★</span>
+                    ) : null}
                   </button>
                 )
               })}
+            </div>
+
+            {/* Long-press hint + save confirmation */}
+            <div style={{ fontSize: 12, color: defaultSavedMsg ? D.success : D.textMuted, paddingTop: 8 }}>
+              {defaultSavedMsg || 'Hold any option for a second to make it your default for every new clip.'}
             </div>
 
             {/* Custom color panel (Only visible when Custom background is checked).
@@ -653,8 +723,10 @@ export default function RepurposePage() {
                       onClick={handleColorSquareClick}
                       style={{
                         width: '100%', height: 200, marginBottom: 12, borderRadius: 6, cursor: 'crosshair',
-                        background: `linear-gradient(to right, white, hsl(${pickerHue}, 100%, 50%)),
-                                    linear-gradient(to top, black, transparent)`,
+                        // Layer order matters: the black fade must be the FIRST layer (painted on
+                        // top) or the opaque white→hue layer hides it and the bottom looks white.
+                        background: `linear-gradient(to top, black, transparent),
+                                    linear-gradient(to right, white, hsl(${pickerHue}, 100%, 50%))`,
                         border: `1px solid ${D.cardBorder}`, position: 'relative',
                       }}
                     />
