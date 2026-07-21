@@ -16,6 +16,9 @@ import '@fontsource/inter/500.css'
 import '@fontsource/inter/600.css'
 import '@fontsource/inter/700.css'
 import '@fontsource/inter/800.css'
+// Display font for headings — gives the brand its own voice next to Inter body text.
+import '@fontsource/space-grotesk/500.css'
+import '@fontsource/space-grotesk/700.css'
 // GLOBAL STYLESHEET: index.css contains all layout designs, glassmorphism borders, fonts, colors, and responsive sizes.
 import './index.css'
 import { tryRestoreSession } from './api/client'

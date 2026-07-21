@@ -102,30 +102,122 @@ export default function HomePage() {
         - 3-column list explaining product capabilities with custom Google Material icons.
         - Styled by .premium-feature-grid in index.css.
       */}
-      <section className="premium-feature-grid mobile-feature-list stagger">
-        
-        {/* Column 1: AI Hooks */}
-        <article>
-          <span className="material-symbols-outlined">auto_awesome</span>
-          <h2>Generate better hooks</h2>
-          <p>Gemini creates punchy overlay options from the clip context so each reel starts with a stronger first second.</p>
-        </article>
-        
-        {/* Column 2: Editor */}
-        <article>
-          <span className="material-symbols-outlined">edit_square</span>
-          <h2>Edit in one place</h2>
-          <p>Adjust ratio, background, text, captions, and export settings without jumping across messy screens.</p>
-        </article>
-        
-        {/* Column 3: Exports */}
-        <article>
-          <span className="material-symbols-outlined">ios_share</span>
-          <h2>Export with the caption</h2>
-          <p>Review the final video, download it, and copy the caption from the same mobile-friendly page.</p>
-        </article>
-
+      {/*
+        HOW IT WORKS — three numbered steps connected by a gradient rail.
+        Styled by .how-section / .how-grid in index.css.
+      */}
+      <section className="how-section">
+        <div className="section-heading">
+          <span className="eyebrow">How it works</span>
+          <h2>Three steps. No timeline scrubbing.</h2>
+        </div>
+        <div className="how-grid stagger">
+          <article className="how-step surface">
+            <span className="how-num">01</span>
+            <h3>Drop your video</h3>
+            <p>Upload any MP4, MOV, or WEBM — then leave the page. Everything renders in the background.</p>
+          </article>
+          <article className="how-step surface">
+            <span className="how-num">02</span>
+            <h3>AI cuts &amp; hooks it</h3>
+            <p>Smart crop finds the action, and AI writes 20 overlay hooks so the first second actually stops thumbs.</p>
+          </article>
+          <article className="how-step surface">
+            <span className="how-num">03</span>
+            <h3>Export with caption</h3>
+            <p>Download the finished reel and copy its Instagram caption from the same screen. Post. Repeat.</p>
+          </article>
+        </div>
       </section>
+
+      {/*
+        FEATURE BENTO — one large editor-mock showcase card + four compact feature cards.
+        Styled by .bento-marketing in index.css.
+      */}
+      <section className="bento-marketing">
+        <div className="section-heading">
+          <span className="eyebrow">The toolkit</span>
+          <h2>Everything a clipper needs, nothing they don't.</h2>
+        </div>
+        <div className="bento-marketing-grid stagger">
+
+          {/* Large showcase: a CSS-drawn miniature of the editor */}
+          <article className="bento-feature bento-feature-lg surface surface-hover">
+            <div className="mini-editor" aria-hidden="true">
+              <div className="mini-editor-stage">
+                <div className="mini-editor-video">
+                  <span className="mini-hook-text">nobody talks about this side of the game</span>
+                </div>
+              </div>
+              <div className="mini-editor-controls">
+                <div className="mini-row"><span /><i style={{ width: '72%' }} /></div>
+                <div className="mini-row"><span /><i style={{ width: '48%' }} /></div>
+                <div className="mini-row"><span /><i style={{ width: '61%' }} /></div>
+              </div>
+            </div>
+            <h3>A real editor, built for phones</h3>
+            <p>Reposition, recolor, and rewrite the overlay on a live preview — then export in one tap.</p>
+          </article>
+
+          <article className="bento-feature surface surface-hover">
+            <span className="material-symbols-outlined">auto_awesome</span>
+            <h3>20 AI hooks per clip</h3>
+            <p>Punchy overlay options written from the clip's actual context.</p>
+          </article>
+
+          <article className="bento-feature surface surface-hover">
+            <span className="material-symbols-outlined">crop</span>
+            <h3>Smart crop</h3>
+            <p>Finds the subject and reframes to 9:16, 4:5, 1:1, or 16:9 automatically.</p>
+          </article>
+
+          <article className="bento-feature surface surface-hover">
+            <span className="material-symbols-outlined">content_copy</span>
+            <h3>Captions included</h3>
+            <p>Every clip ships with a ready-to-paste Instagram caption.</p>
+          </article>
+
+          <article className="bento-feature surface surface-hover">
+            <span className="material-symbols-outlined">rocket_launch</span>
+            <h3>Fire &amp; forget</h3>
+            <p>Hit generate and close the tab — clips land in Projects when ready.</p>
+          </article>
+
+        </div>
+      </section>
+
+      {/*
+        FINAL CTA — glowing gradient panel.
+        Styled by .final-cta in index.css.
+      */}
+      <section className="final-cta surface">
+        <div className="final-cta-glow" aria-hidden="true" />
+        <h2>Start clipping tonight.</h2>
+        <p>Upload one video and watch it come back as post-ready reels.</p>
+        <div className="hero-actions" style={{ justifyContent: 'center' }}>
+          <Link className="btn btn-solid-white btn-lg" to="/signup">Build My Workspace</Link>
+          <Link className="btn btn-glass btn-lg" to="/pricing">See Pricing</Link>
+        </div>
+      </section>
+
+      {/*
+        FOOTER — brand, links, copyright.
+        Styled by .marketing-footer in index.css.
+      */}
+      <footer className="marketing-footer">
+        <div className="marketing-footer-inner">
+          <div>
+            <Link className="marketing-brand" to="/">Reclipper</Link>
+            <p>The clipping workflow, minus the friction.</p>
+          </div>
+          <nav>
+            <Link to="/pricing">Pricing</Link>
+            <Link to="/signin">Sign In</Link>
+            <Link to="/signup">Create Account</Link>
+          </nav>
+        </div>
+        <div className="marketing-footer-legal">© {new Date().getFullYear()} Reclipper. All rights reserved.</div>
+      </footer>
     </div>
   )
 }
