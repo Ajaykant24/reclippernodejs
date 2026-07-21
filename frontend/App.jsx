@@ -145,7 +145,7 @@ function Shell() {
               - Text: Bold "Reclipper" title (styled by .app-brand strong) and "creator suite" (styled by .app-brand small)
           */}
           <div className="app-brand">
-            <span className="app-brand-mark material-symbols-outlined">movie_filter</span>
+            <span className="app-brand-mark">R</span>
             <span>
               <strong>Reclipper</strong>
               <small>creator suite</small>

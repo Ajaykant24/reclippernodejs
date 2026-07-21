@@ -346,15 +346,20 @@ body { overflow-x: hidden; }
   color: var(--text-primary);
 }
 
+/* Letter-based brand mark — a bold capital R in dark blue (navy). */
 .app-brand-mark {
   display: grid;
   place-items: center;
   width: 36px; height: 36px;
   border-radius: 10px;
-  background: var(--teal-glow);
-  border: 1px solid var(--teal-border);
-  color: var(--teal);
+  background: rgba(30, 58, 138, 0.1);
+  border: 1px solid rgba(30, 58, 138, 0.28);
+  color: #1e3a8a;
+  font-family: var(--font-display);
+  font-weight: 700;
   font-size: 20px;
+  line-height: 1;
+  user-select: none;
 }
 
 .app-brand strong {
