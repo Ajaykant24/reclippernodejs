@@ -8,6 +8,14 @@ import { createRoot } from 'react-dom/client'
 import { BrowserRouter } from 'react-router-dom'
 // ROOT COMPONENT: App.jsx acts as the mainframe shell holding all the sub-pages together.
 import App from './App.jsx'
+// SELF-HOSTED FONTS: bundled with the app instead of fetched from Google servers.
+// Faster first paint, identical rendering on every network, no raw icon-name flash.
+// (Icons use a 45KB subset font — see @font-face in index.css + public/fonts/.)
+import '@fontsource/inter/400.css'
+import '@fontsource/inter/500.css'
+import '@fontsource/inter/600.css'
+import '@fontsource/inter/700.css'
+import '@fontsource/inter/800.css'
 // GLOBAL STYLESHEET: index.css contains all layout designs, glassmorphism borders, fonts, colors, and responsive sizes.
 import './index.css'
 import { tryRestoreSession } from './api/client'

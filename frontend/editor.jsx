@@ -1963,7 +1963,7 @@ export default function Editor() {
                       style={{ textAlign: 'left', whiteSpace: 'normal', padding: '8px 12px' }}
                       onClick={() => setCustomText(cleanOverlayText(clip.original_overlay))}
                     >
-                      <span className="material-symbols-outlined" style={{ fontSize: 15, marginRight: 6 }}>restore</span>
+                      <span className="material-symbols-outlined" style={{ fontSize: 15, marginRight: 6 }}>history</span>
                       Use original input text
                     </button>
                   ) : null}

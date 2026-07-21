@@ -83,7 +83,7 @@ export default function InstallPrompt() {
 
   return (
     <div className="install-banner" role="dialog" aria-label="Install Reclipper">
-      <span className="install-banner-icon material-symbols-outlined">install_mobile</span>
+      <span className="install-banner-icon material-symbols-outlined">download</span>
       <div className="install-banner-copy">
         <strong>Install Reclipper</strong>
         {showIOSHelp ? (

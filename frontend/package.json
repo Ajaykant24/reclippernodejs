@@ -9,13 +9,17 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@fontsource/inter": "^5.3.0",
     "@vitejs/plugin-react": "latest",
     "axios": "latest",
-    "vite": "latest",
+    "material-symbols": "^0.45.8",
     "react": "latest",
     "react-dom": "latest",
     "react-router-dom": "latest",
-    "tesseract.js": "latest"
+    "tesseract.js": "latest",
+    "vite": "latest"
   },
-  "devDependencies": {}
+  "devDependencies": {
+    "playwright": "^1.61.1"
+  }
 }
