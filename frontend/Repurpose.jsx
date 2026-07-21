@@ -672,14 +672,15 @@ export default function RepurposePage() {
                       />
                       <style>{`
                         input[type=range]::-webkit-slider-thumb {
-                          appearance: none; width: 16px; height: 16px; borderRadius: 50%;
-                          background: white; border: 2px solid #333; cursor: pointer;
-                          boxShadow: 0 0 4px rgba(255,255,255,0.3);
+                          -webkit-appearance: none; appearance: none;
+                          width: 18px; height: 18px; border-radius: 50%;
+                          background: #fff; border: 3px solid var(--accent); cursor: pointer;
+                          box-shadow: 0 1px 4px rgba(0,0,0,0.4);
                         }
                         input[type=range]::-moz-range-thumb {
-                          width: 16px; height: 16px; borderRadius: 50%;
-                          background: white; border: 2px solid #333; cursor: pointer;
-                          boxShadow: 0 0 4px rgba(255,255,255,0.3);
+                          width: 18px; height: 18px; border-radius: 50%;
+                          background: #fff; border: 3px solid var(--accent); cursor: pointer;
+                          box-shadow: 0 1px 4px rgba(0,0,0,0.4);
                         }
                       `}</style>
                     </div>

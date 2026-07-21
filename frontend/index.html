@@ -10,12 +10,12 @@
     <meta charset="UTF-8" />
     
     <!-- RESPONSIVENESS: Ensures the page scales beautifully on mobile phones and tablets.
-         maximum-scale/user-scalable keep the editor from mis-zooming on input focus. -->
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+         Pinch-zoom stays enabled (accessibility); inputs use >=16px font to prevent iOS auto-zoom. -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
 
     <!-- PWA: installable "Add to Home Screen" app that opens fullscreen like a native app. -->
     <link rel="manifest" href="/manifest.webmanifest" />
-    <meta name="theme-color" content="#0a0a0f" />
+    <meta name="theme-color" content="#08080c" />
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
@@ -30,7 +30,9 @@
 
     <!-- FONTS: Inter (body text) + Material Symbols Outlined (icons) -->
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined" rel="stylesheet" />
+    <!-- display=block keeps icons invisible until the font loads (instead of flashing raw
+         icon names like "play_arrow" as text on slow connections). -->
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined&display=block" rel="stylesheet" />
 
     <!-- BROWSER TAB TITLE: The name that appears at the top of your web browser's tab. -->
     <title>Reclipper</title>

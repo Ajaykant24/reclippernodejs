@@ -1,4 +1,4 @@
-// â”€â”€ PROJECTS MANAGER BOARD: Projects.jsx â”€â”€
+// ── PROJECTS MANAGER BOARD: Projects.jsx ──
 // - Purpose: This is your projects folder library dashboard page.
 // - Features: 
 //   1. Displays completed and active background processing clips side-by-side using Bento Grids.
@@ -11,7 +11,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { api, API_BASE, resolveUrl } from './api/client'
 
-// â”€â”€ PREVIEW CANVAS CONSTANTS (COORDINATES SYSTEM) â”€â”€
+// ── PREVIEW CANVAS CONSTANTS (COORDINATES SYSTEM) ──
 // - Purpose: Defines strict size boundaries for the mobile simulator mockups on this page.
 const STAGE_W = 405             // Width of the mobile preview simulator stage
 const STAGE_H = 720             // Height of the mobile preview simulator stage
@@ -52,7 +52,7 @@ function overlayTextColor(bgType, bgColor) {
   return '#ffffff'
 }
 
-// â”€â”€ UTILITY DATA FORMATTERS â”€â”€
+// ── UTILITY DATA FORMATTERS ──
 
 function formatDate(iso) {
   // Purpose: Converts server timestamp dates (e.g. 2026-05-28...) into readable dates (e.g. "May 28, 2026")
@@ -306,17 +306,17 @@ function makeOverlayImage({ lines, textBox, fontSize, textColor = '#ffffff', ali
   return canvas.toDataURL('image/png')
 }
 
-// â”€â”€ PIPELINE STATE TEXT DICTIONARIES â”€â”€
+// ── PIPELINE STATE TEXT DICTIONARIES ──
 // - Maps raw backend states to friendly, plain English statuses
 const STATUS_LABEL = {
   queued: 'Queued',
-  probing: 'Reading videoâ€¦',
-  cropping: 'Croppingâ€¦',
-  composing: 'Composingâ€¦',
-  analyzing: 'Analyzingâ€¦',
-  generating_ai: 'AI generating hooksâ€¦',
-  rendering: 'Renderingâ€¦',
-  finalizing: 'Finalizingâ€¦',
+  probing: 'Reading video…',
+  cropping: 'Cropping…',
+  composing: 'Composing…',
+  analyzing: 'Analyzing…',
+  generating_ai: 'AI generating hooks…',
+  rendering: 'Rendering…',
+  finalizing: 'Finalizing…',
   done: 'Done',
   failed: 'Failed',
   interrupted: 'Interrupted',
@@ -351,7 +351,7 @@ function isRepurposeProject(project) {
 }
 
 
-// â”€â”€ SUB-COMPONENT 1: DELETE CONFIRMATION DIALOG MODAL â”€â”€
+// ── SUB-COMPONENT 1: DELETE CONFIRMATION DIALOG MODAL ──
 // - Purpose: Overlay card checking if you are sure you want to delete a project folder.
 // - Editing Tip: Change text strings inside <h3> and <p> elements below if you want to alter safety warnings.
 
@@ -406,7 +406,7 @@ function DeleteModal({ project, onConfirm, onCancel }) {
             disabled={deleting}
           >
             {deleting ? (
-              <><span className="material-symbols-outlined anim-spin" style={{ fontSize: 16 }}>progress_activity</span> Deletingâ€¦</>
+              <><span className="material-symbols-outlined anim-spin" style={{ fontSize: 16 }}>progress_activity</span> Deleting…</>
             ) : (
               <><span className="material-symbols-outlined" style={{ fontSize: 16 }}>delete</span> Delete project</>
             )}
@@ -419,7 +419,7 @@ function DeleteModal({ project, onConfirm, onCancel }) {
 }
 
 
-// â”€â”€ SUB-COMPONENT 2: PROCESSING / RENDERING LOADER METER CARD â”€â”€
+// ── SUB-COMPONENT 2: PROCESSING / RENDERING LOADER METER CARD ──
 // - Purpose: Renders progress status bars inside the Bento grid while a video is smart-cropping or generating hooks.
 // - Visuals: Features circular spinning loaders, dynamic status update labels, and sliding gradient loading bars.
 
@@ -475,23 +475,23 @@ function ProcessingCard({ job, onComplete }) {
             <span className="material-symbols-outlined" style={{ fontSize: 16, color, fontVariationSettings: "'FILL' 1" }}>error</span>
           )}
           <span style={{ fontSize: 12, fontWeight: 700, color, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-            {failed ? 'Processing failed' : done ? 'Clips ready!' : 'Processingâ€¦'}
+            {failed ? 'Processing failed' : done ? 'Clips ready!' : 'Processing…'}
           </span>
         </div>
 
         {/* Uploaded Video Filename label */}
-        <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--color-text-primary)', marginBottom: 6, wordBreak: 'break-all', lineClamp: 1, overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis' }}>
+        <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)', marginBottom: 6, wordBreak: 'break-all', overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis' }}>
           {fileName}
         </div>
 
         {/* Informative status details */}
-        <div style={{ fontSize: 11, color: 'var(--color-text-secondary)', marginBottom: 14 }}>
+        <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginBottom: 14 }}>
           {failed ? (job.error || 'An error occurred') : label}
         </div>
 
         {/* DYNAMIC PROGRESS METER BAR */}
         {!failed && (
-          <div style={{ height: 4, background: 'var(--color-border)', borderRadius: 4, overflow: 'hidden', marginBottom: 14 }}>
+          <div style={{ height: 4, background: 'var(--border)', borderRadius: 4, overflow: 'hidden', marginBottom: 14 }}>
             <div style={{
               height: '100%', borderRadius: 4, transition: 'width 0.6s ease',
               background: done
@@ -504,7 +504,7 @@ function ProcessingCard({ job, onComplete }) {
 
         {/* Completion % indicator */}
         {!failed && !done && (
-          <div style={{ fontSize: 11, color: 'var(--color-text-secondary)', marginBottom: 14 }}>{progress}% complete</div>
+          <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginBottom: 14 }}>{progress}% complete</div>
         )}
       </div>
 
@@ -513,7 +513,7 @@ function ProcessingCard({ job, onComplete }) {
 }
 
 
-// â”€â”€ SUB-COMPONENT 3: LOADING PLACEHOLDER GHOST CARD â”€â”€
+// ── SUB-COMPONENT 3: LOADING PLACEHOLDER GHOST CARD ──
 // - Purpose: Renders blurred pulsing structures on initial open, masking grid latency until databases load.
 // - Styled by .bento-skeleton in index.css.
 
@@ -530,7 +530,7 @@ function BentoSkeleton() {
 }
 
 
-// â”€â”€ SUB-COMPONENT 4: REUSABLE THUMBNAIL CONTAINER WITH VECTOR WAVE FALLBACK â”€â”€
+// ── SUB-COMPONENT 4: REUSABLE THUMBNAIL CONTAINER WITH VECTOR WAVE FALLBACK ──
 // - Purpose: Renders standard project preview images.
 // - Magic: If a thumbnail file is missing or backend offline, renders a highly stylized, moving vector wave animation SVG with glowing lines.
 
@@ -575,7 +575,7 @@ function BentoThumb({ src, title }) {
 }
 
 
-// â”€â”€ SUB-COMPONENT 5: STANDARD PROJECT BENTO CARD â”€â”€
+// ── SUB-COMPONENT 5: STANDARD PROJECT BENTO CARD ──
 // - Purpose: Renders standard Long-to-Short folders inside bento rows.
 // - Features: Display clip amount badges, titles, calendars, select checkpoints, and fast delete clicks.
 
@@ -667,7 +667,7 @@ function useOverlayFontReady() {
   return ready
 }
 
-// â”€â”€ SUB-COMPONENT 6: PREMIUM REPURPOSED AI VIDEO MINI-STAGE CARD â”€â”€
+// ── SUB-COMPONENT 6: PREMIUM REPURPOSED AI VIDEO MINI-STAGE CARD ──
 // - Purpose: Renders specialized AI 9:16 layout boxes.
 // - Magic: Instead of a flat thumbnail image, it renders an live streaming `<video>` element!
 //   - Hovers play: When you move your cursor over this card, it automatically plays the clip muted, giving you an instant dynamic feed review.
@@ -949,7 +949,7 @@ function RepurposeProjectCard({ project, onEdit, onDelete, selectable = false, s
 }
 
 
-// â”€â”€ SUB-COMPONENT 7: DASHED "ADD NEW PROJECT" CARD BENTO â”€â”€
+// ── SUB-COMPONENT 7: DASHED "ADD NEW PROJECT" CARD BENTO ──
 // - Purpose: Dashed placeholder card allowing users to easily launch the creation wizards.
 // - Styled by .bento-new and .bento-new-inner in index.css.
 
@@ -970,7 +970,7 @@ function NewProjectCard({ onClick, label = 'New Project', sub = 'Start from a UR
 }
 
 
-// â”€â”€ PRIMARY CONTROLLER COMPONENT: PROJECTS PAGE VIEW â”€â”€
+// ── PRIMARY CONTROLLER COMPONENT: PROJECTS PAGE VIEW ──
 
 export default function ProjectsPage() {
   const navigate = useNavigate()
@@ -1168,13 +1168,13 @@ export default function ProjectsPage() {
   return (
     <div className="proj-page mobile-page mobile-projects-page">
 
-      {/* â”€â”€ SECTION A: PAGE HEADER & CONTROLS â”€â”€ */}
+      {/* ── SECTION A: PAGE HEADER & CONTROLS ── */}
       <div className="proj-header mobile-page-hero">
         <div>
           <h1 className="proj-heading">Projects</h1>
           {/* Library status description (Calculates length, mentions auto-delete timer) */}
           <p className="proj-subheading">
-            {loading ? 'Loading your projectsâ€¦' : `${projects.length} project${projects.length !== 1 ? 's' : ''} Â· auto-deleted after 30 days`}
+            {loading ? 'Loading your projects…' : `${projects.length} project${projects.length !== 1 ? 's' : ''} · auto-deleted after 30 days`}
           </p>
         </div>
 
@@ -1189,7 +1189,7 @@ export default function ProjectsPage() {
             <span className="material-symbols-outlined proj-search-icon" style={{ fontSize: 15 }}>search</span>
             <input 
               className="proj-search" 
-              placeholder="Filter projectsâ€¦" 
+              placeholder="Filter projects…" 
               value={search} 
               onChange={e => setSearch(e.target.value)} 
             />
@@ -1210,7 +1210,7 @@ export default function ProjectsPage() {
       </div>
 
 
-      {/* â”€â”€ SECTION B: ACTIVE RENDER JOBS NOTICE BANNER â”€â”€
+      {/* ── SECTION B: ACTIVE RENDER JOBS NOTICE BANNER ──
           - Cyan-blue colored alert panel that slides open if a background render is active.
       */}
       {hasActiveJobs && (
@@ -1226,18 +1226,18 @@ export default function ProjectsPage() {
         }}>
           <span className="material-symbols-outlined anim-spin" style={{ fontSize: 20, color: '#5ce1e6' }}>progress_activity</span>
           <div>
-            <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--color-text-primary)' }}>
+            <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)' }}>
               {activeJobs.length} clip generation{activeJobs.length > 1 ? 's' : ''} in progress
             </div>
-            <div style={{ fontSize: 12, color: 'var(--color-text-secondary)' }}>
-              Processing in the background â€” this page refreshes automatically when done.
+            <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>
+              Processing in the background — this page refreshes automatically when done.
             </div>
           </div>
         </div>
       )}
 
 
-      {/* â”€â”€ SECTION C: DETAILED STATISTICS METRIC BAR â”€â”€
+      {/* ── SECTION C: DETAILED STATISTICS METRIC BAR ──
           - Horizontal table summarising total counts, clip breakdowns, and auto-delete settings.
           - Styled by .proj-stats inside index.css.
       */}
@@ -1271,7 +1271,7 @@ export default function ProjectsPage() {
       )}
 
 
-      {/* â”€â”€ SECTION D: PROJECT TYPE SEGMENTED TAB SWITCHES & BULK ACTIONS â”€â”€
+      {/* ── SECTION D: PROJECT TYPE SEGMENTED TAB SWITCHES & BULK ACTIONS ──
           - Segmented tabs allowing you to toggle between Repurpose (meme clips) vs Long-to-short dashboards.
           - Multi-delete controls appear next to the tabs if multi-select mode is turned on.
       */}
@@ -1298,7 +1298,7 @@ export default function ProjectsPage() {
       )}
 
 
-      {/* â”€â”€ SECTION E: CORE BENTO PROJECTS GRID â”€â”€
+      {/* ── SECTION E: CORE BENTO PROJECTS GRID ──
           - Renders 3 grid states:
             1. Loading: Shows grey pulsing card placeholders (.bento-skeleton).
             2. Empty library placeholder (.bento-empty) with big folder icons.
@@ -1397,7 +1397,7 @@ export default function ProjectsPage() {
       )}
 
 
-      {/* â”€â”€ SECTION F: POPUP MODAL WRAPPERS â”€â”€ */}
+      {/* ── SECTION F: POPUP MODAL WRAPPERS ── */}
       <DeleteModal
         project={deleteTarget}
         onConfirm={handleDeleteConfirm}
