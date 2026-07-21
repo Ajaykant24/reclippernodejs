@@ -43,36 +43,36 @@
   -webkit-font-smoothing: antialiased;
 }
 
-/* ── Design Tokens ── */
+/* ── Design Tokens — "Nude Editorial": warm ivory, charcoal ink, terracotta ── */
 :root {
-  color-scheme: dark;
-  /* Elevation ramp — deeper base, clearer surface separation */
-  --bg-base: #08080c;
-  --bg-surface: #121218;
-  --bg-card: #1a1a23;
-  --bg-elevated: #22222d;
-  --bg-hover: #262631;
-  /* Brand accent + gradient */
-  --accent: #ff5a3d;
-  --accent-hover: #ff6f56;
-  --accent-press: #e6431f;
-  --accent-glow: rgba(255, 90, 61, 0.14);
-  --accent-border: rgba(255, 90, 61, 0.38);
-  --accent-gradient: linear-gradient(135deg, #ff6f56 0%, #ff5a3d 55%, #e6431f 100%);
-  --text-primary: #f5f5fa;
-  --text-secondary: #9797ae;
-  --text-muted: #7b7b95;
-  --border: #2a2a38;
-  --border-light: #1d1d28;
-  --success: #22c55e;
-  --teal: #2dd4bf;
-  --teal-glow: rgba(45, 212, 191, 0.12);
-  --teal-border: rgba(45, 212, 191, 0.3);
-  --danger: #ef4444;
+  color-scheme: light;
+  /* Elevation ramp — warm paper stack, darkest at the page, brightest on cards */
+  --bg-base: #f4efe8;
+  --bg-surface: #efe8de;
+  --bg-card: #faf6f0;
+  --bg-elevated: #ece4d8;
+  --bg-hover: #e6dccd;
+  /* Brand accent + gradient — terracotta */
+  --accent: #c2552e;
+  --accent-hover: #d4643c;
+  --accent-press: #a84523;
+  --accent-glow: rgba(194, 85, 46, 0.12);
+  --accent-border: rgba(194, 85, 46, 0.35);
+  --accent-gradient: linear-gradient(135deg, #d4643c 0%, #c2552e 55%, #a84523 100%);
+  --text-primary: #201a14;
+  --text-secondary: #6b5f52;
+  --text-muted: #99897a;
+  --border: #ddd2c2;
+  --border-light: #e8e0d3;
+  --success: #1e8e3e;
+  --teal: #1a7a6d;
+  --teal-glow: rgba(26, 122, 109, 0.1);
+  --teal-border: rgba(26, 122, 109, 0.3);
+  --danger: #c62828;
   /* Status colors (shared across Projects/Admin badges & banners) */
-  --ok: #22c55e;
-  --warn: #fbbf24;
-  --info: #5ce1e6;
+  --ok: #1e8e3e;
+  --warn: #b45309;
+  --info: #0e7490;
   /* Type scale — one hierarchy for every page */
   --fs-hero: clamp(34px, 5vw, 46px);
   --fs-h1: 28px;
@@ -99,12 +99,12 @@
   --z-sheet: 200;
   --z-modal: 300;
   --z-toast: 400;
-  /* Shadow scale */
-  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
-  --shadow-md: 0 6px 20px rgba(0, 0, 0, 0.35);
-  --shadow-lg: 0 16px 48px rgba(0, 0, 0, 0.45);
-  --glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
-  --accent-shadow: 0 6px 20px rgba(255, 90, 61, 0.35);
+  /* Shadow scale — warm, soft; ink shadows look dirty on cream */
+  --shadow-sm: 0 1px 2px rgba(60, 45, 30, 0.06);
+  --shadow-md: 0 6px 20px rgba(60, 45, 30, 0.09);
+  --shadow-lg: 0 16px 48px rgba(60, 45, 30, 0.13);
+  --glass-shadow: 0 8px 32px rgba(60, 45, 30, 0.08);
+  --accent-shadow: 0 6px 20px rgba(194, 85, 46, 0.28);
   /* 8pt spacing scale */
   --sp-1: 4px; --sp-2: 8px; --sp-3: 12px; --sp-4: 16px; --sp-5: 24px; --sp-6: 32px; --sp-7: 48px;
   --transition: all 0.16s cubic-bezier(0.4, 0, 0.2, 1);
@@ -136,8 +136,8 @@ body::before {
   z-index: -3;
   pointer-events: none;
   background:
-    radial-gradient(ellipse at 10% 0%, rgba(255, 90, 61, 0.06), transparent 50%),
-    radial-gradient(ellipse at 90% 100%, rgba(45, 212, 191, 0.04), transparent 50%);
+    radial-gradient(ellipse at 10% 0%, rgba(194, 85, 46, 0.05), transparent 50%),
+    radial-gradient(ellipse at 90% 100%, rgba(26, 122, 109, 0.04), transparent 50%);
 }
 
 /* Film-grain texture — a faint SVG noise layer that kills the "flat template" look.
@@ -148,8 +148,46 @@ body::after {
   inset: 0;
   z-index: -2;
   pointer-events: none;
-  opacity: 0.028;
+  opacity: 0.045;
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+/* ── DARK STUDIO SCOPE ──
+   The clip editor keeps a dark surround on purpose: judging video color on a
+   bright ivory page is unreliable, and every premium video tool edits in the
+   dark. All tokens flip back to the studio palette inside the editor shell. */
+.app-shell.app-editor-shell {
+  color-scheme: dark;
+  --bg-base: #08080c;
+  --bg-surface: #121218;
+  --bg-card: #1a1a23;
+  --bg-elevated: #22222d;
+  --bg-hover: #262631;
+  --accent: #ff5a3d;
+  --accent-hover: #ff6f56;
+  --accent-press: #e6431f;
+  --accent-glow: rgba(255, 90, 61, 0.14);
+  --accent-border: rgba(255, 90, 61, 0.38);
+  --accent-gradient: linear-gradient(135deg, #ff6f56 0%, #ff5a3d 55%, #e6431f 100%);
+  --accent-shadow: 0 6px 20px rgba(255, 90, 61, 0.35);
+  --text-primary: #f5f5fa;
+  --text-secondary: #9797ae;
+  --text-muted: #7b7b95;
+  --border: #2a2a38;
+  --border-light: #1d1d28;
+  --teal: #2dd4bf;
+  --teal-glow: rgba(45, 212, 191, 0.12);
+  --teal-border: rgba(45, 212, 191, 0.3);
+  --danger: #ef4444;
+  --ok: #22c55e;
+  --warn: #fbbf24;
+  --info: #5ce1e6;
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 6px 20px rgba(0, 0, 0, 0.35);
+  --shadow-lg: 0 16px 48px rgba(0, 0, 0, 0.45);
+  --glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+  background: var(--bg-base);
+  color: var(--text-primary);
 }
 
 /* Headings speak in the display face across the whole app. */
@@ -268,14 +306,14 @@ body { overflow-x: hidden; }
 .app-water-a {
   width: 40vw; height: 40vw;
   left: -15vw; bottom: -10vw;
-  background: radial-gradient(circle, rgba(255, 90, 61, 0.08), transparent 60%);
+  background: radial-gradient(circle, rgba(194, 85, 46, 0.07), transparent 60%);
   animation: waterFloat 18s ease-in-out infinite;
 }
 
 .app-water-b {
   width: 35vw; height: 35vw;
   right: -12vw; top: 10vh;
-  background: radial-gradient(circle, rgba(45, 212, 191, 0.06), transparent 60%);
+  background: radial-gradient(circle, rgba(26, 122, 109, 0.05), transparent 60%);
   animation: waterFloat 22s ease-in-out infinite reverse;
 }
 
@@ -420,7 +458,7 @@ body { overflow-x: hidden; }
   border: 1px solid rgba(239, 68, 68, 0.25);
   border-radius: var(--radius-btn);
   background: rgba(239, 68, 68, 0.08);
-  color: #f87171;
+  color: var(--danger);
   font-weight: 600;
   font-size: 12px;
   transition: var(--transition);
@@ -442,7 +480,7 @@ body { overflow-x: hidden; }
   padding: 0 16px;
   padding-top: env(safe-area-inset-top, 0);
   min-height: calc(54px + env(safe-area-inset-top, 0));
-  background: rgba(10, 10, 15, 0.82);
+  background: rgba(244, 239, 232, 0.86);
   backdrop-filter: blur(20px) saturate(150%);
   -webkit-backdrop-filter: blur(20px) saturate(150%);
   border-bottom: 1px solid var(--border-light);
@@ -478,7 +516,7 @@ body { overflow-x: hidden; }
   left: 0; right: 0;
   z-index: 40;
   padding-bottom: env(safe-area-inset-bottom, 0);
-  background: rgba(12, 12, 18, 0.9);
+  background: rgba(244, 239, 232, 0.92);
   backdrop-filter: blur(26px) saturate(160%);
   -webkit-backdrop-filter: blur(26px) saturate(160%);
   border-top: 1px solid var(--border-light);
@@ -696,7 +734,7 @@ body { overflow-x: hidden; }
 .caption-copy-btn:active { transform: scale(0.97); }
 
 .btn-glass {
-  background: rgba(255, 255, 255, 0.04);
+  background: rgba(32, 26, 20, 0.04);
   border-color: var(--border);
   color: var(--text-primary);
   backdrop-filter: blur(8px);
@@ -704,13 +742,13 @@ body { overflow-x: hidden; }
 }
 
 .btn-glass:hover {
-  background: rgba(255, 255, 255, 0.08);
+  background: rgba(32, 26, 20, 0.07);
   border-color: var(--text-muted);
 }
 
 .btn-danger {
   background: rgba(239, 68, 68, 0.12);
-  color: #f87171;
+  color: var(--danger);
   border-color: rgba(239, 68, 68, 0.32);
 }
 
@@ -790,7 +828,7 @@ textarea.glass-input {
 
 /* ── Glass containers ── */
 .glass, .glass-strong, .glass-thin {
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.025), rgba(255, 255, 255, 0));
+  background: none;
   background-color: var(--bg-card);
   border: 1px solid var(--border);
   border-radius: var(--radius-card);
@@ -805,7 +843,7 @@ textarea.glass-input {
 
 /* ── Surface primitive — THE card recipe every panel composes ── */
 .surface {
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.03), rgba(255, 255, 255, 0)) var(--bg-card);
+  background: var(--bg-card);
   border: 1px solid var(--border);
   border-radius: var(--radius-card);
   box-shadow: var(--shadow-sm);
@@ -838,7 +876,7 @@ textarea.glass-input {
 .chip-teal   { background: var(--teal-glow); border-color: var(--teal-border); color: var(--teal); }
 .chip-ok     { background: rgba(34, 197, 94, 0.12); border-color: rgba(34, 197, 94, 0.3); color: var(--ok); }
 .chip-warn   { background: rgba(251, 191, 36, 0.12); border-color: rgba(251, 191, 36, 0.3); color: var(--warn); }
-.chip-danger { background: rgba(239, 68, 68, 0.12); border-color: rgba(239, 68, 68, 0.3); color: #f87171; }
+.chip-danger { background: rgba(198, 40, 40, 0.1); border-color: rgba(198, 40, 40, 0.3); color: var(--danger); }
 
 /* ── Shared info box (teal notices: pending approval, expired session, tips) ── */
 .info-box {
@@ -890,7 +928,7 @@ textarea.glass-input {
   position: absolute;
   inset: 0;
   transform: translateX(-100%);
-  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.05), transparent);
+  background: linear-gradient(90deg, transparent, rgba(60, 45, 30, 0.06), transparent);
   animation: skeletonSweep 1.4s ease-in-out infinite;
 }
 @keyframes skeletonSweep { to { transform: translateX(100%); } }
@@ -913,7 +951,7 @@ textarea.glass-input {
   border-radius: var(--radius-btn);
   background: rgba(239, 68, 68, 0.1);
   border: 1px solid rgba(239, 68, 68, 0.3);
-  color: #f87171;
+  color: var(--danger);
   font-size: 13px;
   font-weight: 600;
 }
@@ -2082,6 +2120,10 @@ textarea.glass-input {
 
 .marketing-nav nav a:hover { color: var(--text-primary); }
 
+/* The signup chip must beat the generic nav-link color above (specificity war). */
+.marketing-nav nav a.marketing-signup { color: #fff; }
+.marketing-nav nav a.marketing-signup:hover { color: #fff; }
+
 .marketing-signup {
   background: var(--accent-gradient);
   color: #fff;
@@ -2135,8 +2177,8 @@ textarea.glass-input {
 
 .premium-phone {
   width: 240px;
-  background: var(--bg-card);
-  border: 1px solid var(--border);
+  background: #241d16;
+  border: 1px solid #3a2f24;
   border-radius: 28px;
   padding: 16px;
   box-shadow: 0 24px 64px rgba(0, 0, 0, 0.4), 0 0 80px var(--accent-glow);
@@ -2160,13 +2202,13 @@ textarea.glass-input {
 .phone-topbar {
   width: 60px;
   height: 4px;
-  background: var(--border);
+  background: #4a3d2f;
   border-radius: 99px;
   margin: 0 auto 12px;
 }
 
 .phone-video {
-  background: var(--bg-base);
+  background: #16110c;
   border-radius: 12px;
   padding: 24px 16px;
   text-align: center;
@@ -2178,21 +2220,21 @@ textarea.glass-input {
   gap: 6px;
 }
 
-.phone-video span { font-size: 11px; color: var(--teal); font-weight: 700; text-transform: uppercase; }
-.phone-video strong { font-size: 16px; font-weight: 800; color: var(--text-primary); }
+.phone-video span { font-size: 11px; color: #5ce1c6; font-weight: 700; text-transform: uppercase; }
+.phone-video strong { font-size: 16px; font-weight: 800; color: #fdfaf5; }
 
 .phone-caption-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
   padding: 10px 12px;
-  background: var(--bg-hover);
+  background: #2c241b;
   border-radius: 8px;
   margin-bottom: 8px;
 }
 
-.phone-caption-row span { font-size: 12px; color: var(--text-secondary); }
-.phone-caption-row b { font-size: 11px; color: var(--teal); }
+.phone-caption-row span { font-size: 12px; color: #b5a893; }
+.phone-caption-row b { font-size: 11px; color: #5ce1c6; }
 
 .phone-action {
   text-align: center;
@@ -2288,8 +2330,8 @@ textarea.glass-input {
   display: grid;
   grid-template-columns: 1fr 108px;
   gap: 12px;
-  background: var(--bg-base);
-  border: 1px solid var(--border-light);
+  background: #241d16;
+  border: 1px solid #3a2f24;
   border-radius: var(--radius-btn);
   padding: 14px;
   min-height: 190px;
@@ -2302,8 +2344,8 @@ textarea.glass-input {
   background:
     linear-gradient(160deg, rgba(255, 90, 61, 0.18), transparent 55%),
     linear-gradient(320deg, rgba(45, 212, 191, 0.12), transparent 55%),
-    var(--bg-elevated);
-  border: 1px solid var(--border);
+    #100c08;
+  border: 1px solid #3a2f24;
   display: flex;
   align-items: flex-end;
   padding: 8px;
@@ -2318,7 +2360,7 @@ textarea.glass-input {
 }
 .mini-editor-controls { display: flex; flex-direction: column; justify-content: center; gap: 14px; }
 .mini-row { display: flex; flex-direction: column; gap: 5px; }
-.mini-row span { width: 34px; height: 5px; border-radius: 99px; background: var(--bg-hover); }
+.mini-row span { width: 34px; height: 5px; border-radius: 99px; background: #3a2f24; }
 .mini-row i { display: block; height: 7px; border-radius: 99px; background: linear-gradient(90deg, var(--accent), rgba(255, 90, 61, 0.35)); }
 
 /* ── Final CTA panel ── */

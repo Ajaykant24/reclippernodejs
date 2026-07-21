@@ -363,7 +363,7 @@ export default function RepurposePage() {
         </p>
 
         {/* Sliding rainbow progress loader bar */}
-        <div style={{ height: 4, background: 'rgba(255,255,255,0.07)', borderRadius: 99, overflow: 'hidden', marginBottom: 28 }}>
+        <div style={{ height: 4, background: 'rgba(32,26,20,0.08)', borderRadius: 99, overflow: 'hidden', marginBottom: 28 }}>
           <div style={{
             height: '100%', width: '42%', borderRadius: 99,
             background: `linear-gradient(90deg, ${D.accent}, ${D.success})`,
@@ -460,7 +460,7 @@ export default function RepurposePage() {
           <div style={{
             width: 70, height: 70, borderRadius: '50%',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
-            background: dragOver ? D.accentGlow : 'rgba(255,255,255,0.05)',
+            background: dragOver ? D.accentGlow : 'rgba(32,26,20,0.04)',
             border: `1px solid ${dragOver ? D.accentBorder : D.cardBorder}`,
             transition: 'all 0.22s',
           }}>
@@ -603,7 +603,7 @@ export default function RepurposePage() {
             {/* Custom color panel (Only visible when Custom background is checked).
                 Tasteful in-app swatch circles + hex input — no native OS color dialog. */}
             {bgType === 'custom' && (
-              <div style={{ marginTop: 12, padding: 14, borderRadius: 8, background: 'rgba(255,255,255,0.03)', border: `1px solid ${D.cardBorder}` }}>
+              <div style={{ marginTop: 12, padding: 14, borderRadius: 8, background: 'rgba(32,26,20,0.03)', border: `1px solid ${D.cardBorder}` }}>
                 <div style={{ fontSize: 13, fontWeight: 700, color: D.text, marginBottom: 10 }}>Canvas color</div>
 
                 {/* Curated background-color circles */}
@@ -635,7 +635,7 @@ export default function RepurposePage() {
                   onClick={() => { setShowColorPicker(!showColorPicker); setPickerHue(hexToHsv(bgCustomColor).h) }}
                   style={{
                     display: 'flex', alignItems: 'center', gap: 8, width: '100%', padding: '8px 12px',
-                    marginBottom: 14, borderRadius: 8, background: 'rgba(255,255,255,0.03)', border: `1px solid ${D.cardBorder}`,
+                    marginBottom: 14, borderRadius: 8, background: 'rgba(32,26,20,0.03)', border: `1px solid ${D.cardBorder}`,
                     cursor: 'pointer', color: D.text, fontSize: 12, fontWeight: 600,
                   }}
                 >
@@ -646,7 +646,7 @@ export default function RepurposePage() {
 
                 {/* Custom color picker */}
                 {showColorPicker && (
-                  <div style={{ marginBottom: 14, padding: 12, borderRadius: 8, background: 'rgba(255,255,255,0.02)', border: `1px solid ${D.cardBorder}` }}>
+                  <div style={{ marginBottom: 14, padding: 12, borderRadius: 8, background: 'rgba(32,26,20,0.02)', border: `1px solid ${D.cardBorder}` }}>
                     {/* Color square */}
                     <div
                       ref={colorPickerRef}
@@ -740,7 +740,7 @@ export default function RepurposePage() {
                           key={preset.id}
                           style={{
                             display: 'flex', alignItems: 'center', gap: 6, padding: '4px 8px',
-                            borderRadius: 6, background: 'rgba(255,255,255,0.03)', border: `1px solid ${D.cardBorder}`,
+                            borderRadius: 6, background: 'rgba(32,26,20,0.03)', border: `1px solid ${D.cardBorder}`,
                             fontSize: 11,
                           }}
                         >
@@ -774,7 +774,7 @@ export default function RepurposePage() {
 
             {/* Blurred strength range slider input (Only visible when Blur background is checked) */}
             {bgType === 'blur' && (
-              <div style={{ marginTop: 12, padding: 14, borderRadius: 8, background: 'rgba(255,255,255,0.03)', border: `1px solid ${D.cardBorder}` }}>
+              <div style={{ marginTop: 12, padding: 14, borderRadius: 8, background: 'rgba(32,26,20,0.03)', border: `1px solid ${D.cardBorder}` }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, fontWeight: 700, color: D.textMuted, marginBottom: 8 }}>
                   <span>Blur strength</span>
                   <span style={{ color: D.accent }}>{Math.round(blurOpacity * 100)}%</span>
