@@ -362,10 +362,29 @@ body { overflow-x: hidden; }
 }
 
 .app-nav a.active {
+  position: relative;
   color: var(--text-primary);
   background: var(--bg-card);
   border: 1px solid var(--border);
 }
+
+/* Accent rail on the active item — slides in, marks "you are here" at a glance. */
+.app-nav a.active::before {
+  content: "";
+  position: absolute;
+  left: -12px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 3px;
+  height: 60%;
+  border-radius: 0 3px 3px 0;
+  background: var(--accent-gradient);
+  box-shadow: 0 0 8px var(--accent-glow);
+  animation: railIn 0.25s ease-out;
+}
+@keyframes railIn { from { height: 0; opacity: 0; } to { height: 60%; opacity: 1; } }
+
+.app-nav a.active .material-symbols-outlined { color: var(--accent); }
 
 .app-user-panel {
   display: grid;

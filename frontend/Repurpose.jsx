@@ -481,8 +481,9 @@ export default function RepurposePage() {
           </span>
         </button>
 
-        {/* Feature benefits list cards columns */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+        {/* Feature benefits list cards — 2 columns on desktop, stacked on phones
+            (side-by-side at 390px squeezed text to 1-2 words per line) */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 12 }}>
           {/* Item 1: Background rendering description */}
           <div style={{ ...darkCard({ padding: '14px 18px' }), display: 'flex', alignItems: 'flex-start', gap: 12 }}>
             <div style={{
