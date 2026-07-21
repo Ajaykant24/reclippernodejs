@@ -324,17 +324,17 @@ const STATUS_LABEL = {
 
 // Color schemes matching background statuses (cyan light blue or pink-red for errors)
 const STATUS_COLOR = {
-  queued: '#5ce1e6',
-  probing: '#5ce1e6',
-  cropping: '#5ce1e6',
-  composing: '#5ce1e6',
-  analyzing: '#5ce1e6',
-  generating_ai: '#5ce1e6',
-  rendering: '#5ce1e6',
-  finalizing: '#ff5a3d',
-  done: '#5ce1e6',
-  failed: '#ff5a3d',
-  interrupted: '#ff5a3d',
+  queued: 'var(--info)',
+  probing: 'var(--info)',
+  cropping: 'var(--info)',
+  composing: 'var(--info)',
+  analyzing: 'var(--info)',
+  generating_ai: 'var(--info)',
+  rendering: 'var(--info)',
+  finalizing: 'var(--accent)',
+  done: 'var(--info)',
+  failed: 'var(--accent)',
+  interrupted: 'var(--accent)',
 }
 
 function isRepurposeProject(project) {
@@ -385,7 +385,7 @@ function DeleteModal({ project, onConfirm, onCancel }) {
         
         {/* Red warning trashcan icon */}
         <div className="modal-icon">
-          <span className="material-symbols-outlined" style={{ fontSize: 32, color: '#ff5a3d' }}>delete_forever</span>
+          <span className="material-symbols-outlined" style={{ fontSize: 32, color: 'var(--accent)' }}>delete_forever</span>
         </div>
         
         {/* Warning messages */}
@@ -401,7 +401,7 @@ function DeleteModal({ project, onConfirm, onCancel }) {
           <button 
             className="btn btn-sm" 
             type="button" 
-            style={{ background: '#ff5a3d', color: '#0b0d10', border: 'none' }} 
+            style={{ background: 'var(--accent)', color: '#0b0d10', border: 'none' }} 
             onClick={handleDelete} 
             disabled={deleting}
           >
@@ -424,7 +424,7 @@ function DeleteModal({ project, onConfirm, onCancel }) {
 // - Visuals: Features circular spinning loaders, dynamic status update labels, and sliding gradient loading bars.
 
 function ProcessingCard({ job, onComplete }) {
-  const color = STATUS_COLOR[job.status] || '#5ce1e6'
+  const color = STATUS_COLOR[job.status] || 'var(--info)'
   const label = STATUS_LABEL[job.status] || job.status
   const progress = job.progress ?? 0
   const failed = job.status === 'failed' || job.status === 'interrupted'
@@ -905,8 +905,8 @@ function RepurposeProjectCard({ project, onEdit, onDelete, selectable = false, s
             background: 'rgba(255, 90, 61, 0.1)',
             border: '1px solid rgba(255, 90, 61, 0.35)',
           }}>
-            <span className="material-symbols-outlined" style={{ fontSize: 14, color: '#ff5a3d', flexShrink: 0, marginTop: 1 }}>error</span>
-            <span style={{ fontSize: 11, color: '#ff5a3d', lineHeight: 1.4 }}>{downloadError}</span>
+            <span className="material-symbols-outlined" style={{ fontSize: 14, color: 'var(--accent)', flexShrink: 0, marginTop: 1 }}>error</span>
+            <span style={{ fontSize: 11, color: 'var(--accent)', lineHeight: 1.4 }}>{downloadError}</span>
           </div>
         )}
 
@@ -915,7 +915,7 @@ function RepurposeProjectCard({ project, onEdit, onDelete, selectable = false, s
           <div style={{
             position: 'absolute', top: 8, right: 8,
             padding: '4px 8px', borderRadius: 4, fontSize: 11, fontWeight: 600,
-            background: 'rgba(76,175,80,0.2)', color: '#4cb050', border: '1px solid rgba(76,175,80,0.4)',
+            background: 'rgba(76,175,80,0.2)', color: 'var(--ok)', border: '1px solid rgba(76,175,80,0.4)',
           }}>
             ✓ Downloaded
           </div>
@@ -1224,7 +1224,7 @@ export default function ProjectsPage() {
           alignItems: 'center',
           gap: 12,
         }}>
-          <span className="material-symbols-outlined anim-spin" style={{ fontSize: 20, color: '#5ce1e6' }}>progress_activity</span>
+          <span className="material-symbols-outlined anim-spin" style={{ fontSize: 20, color: 'var(--info)' }}>progress_activity</span>
           <div>
             <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)' }}>
               {activeJobs.length} clip generation{activeJobs.length > 1 ? 's' : ''} in progress
@@ -1264,7 +1264,7 @@ export default function ProjectsPage() {
           </div>
           <div className="proj-stat-divider" />
           <div className="proj-stat">
-            <span className="proj-stat-value" style={{ color: '#fbbf24' }}>30 days</span>
+            <span className="proj-stat-value" style={{ color: 'var(--warn)' }}>30 days</span>
             <span className="proj-stat-label">Auto-delete</span>
           </div>
         </div>
@@ -1404,48 +1404,32 @@ export default function ProjectsPage() {
         onCancel={() => setDeleteTarget(null)}
       />
 
-      {/* Redownload confirmation dialog */}
+      {/* Redownload confirmation dialog — same .modal-* primitives as DeleteModal */}
       {redownloadConfirm && (
-        <div style={{
-          position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
-          background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center',
-          zIndex: 1000,
-        }} onClick={() => setRedownloadConfirm(null)}>
-          <div style={{
-            background: '#1a1f2e', borderRadius: 12, padding: '24px',
-            maxWidth: 380, minWidth: 300, boxShadow: '0 10px 40px rgba(0,0,0,0.5)',
-            border: '1px solid rgba(255,255,255,0.1)',
-          }} onClick={e => e.stopPropagation()}>
-            <div style={{ fontSize: 16, fontWeight: 700, color: '#fff', marginBottom: 8 }}>Already Downloaded</div>
-            <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.7)', marginBottom: 20, lineHeight: 1.5 }}>
-              You've already downloaded this clip. Do you want to download it again?
+        <div className="modal-backdrop" onClick={() => setRedownloadConfirm(null)}>
+          <div className="modal-dialog" onClick={e => e.stopPropagation()}>
+            <div className="modal-icon">
+              <span className="material-symbols-outlined" style={{ fontSize: 32, color: 'var(--teal)' }}>download</span>
             </div>
-            <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
-              <button
-                onClick={() => setRedownloadConfirm(null)}
-                style={{
-                  padding: '8px 16px', borderRadius: 6, fontSize: 13, fontWeight: 600,
-                  background: 'rgba(255,255,255,0.1)', color: '#fff', border: 'none',
-                  cursor: 'pointer',
-                }}
-              >
+            <h3 className="modal-title">Already downloaded</h3>
+            <p className="modal-desc">
+              You've already downloaded this clip. Do you want to download it again?
+            </p>
+            <div className="modal-actions">
+              <button className="btn btn-glass btn-sm" type="button" onClick={() => setRedownloadConfirm(null)}>
                 Cancel
               </button>
               <button
+                className="btn btn-accent btn-sm"
+                type="button"
                 onClick={() => {
-                  if (redownloadConfirm) {
-                    // Allow redownload for this clip
-                    setRedownloadAllowed(prev => new Set([...prev, redownloadConfirm]))
-                    setRedownloadConfirm(null)
-                  }
-                }}
-                style={{
-                  padding: '8px 16px', borderRadius: 6, fontSize: 13, fontWeight: 600,
-                  background: '#5ce1e6', color: '#000', border: 'none',
-                  cursor: 'pointer',
+                  // Allow redownload for this clip
+                  setRedownloadAllowed(prev => new Set([...prev, redownloadConfirm]))
+                  setRedownloadConfirm(null)
                 }}
               >
-                Download Again
+                <span className="material-symbols-outlined" style={{ fontSize: 16 }}>download</span>
+                Download again
               </button>
             </div>
           </div>

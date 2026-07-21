@@ -45,18 +45,21 @@ const DEFAULT_RATIO = 'original'
 const DEFAULT_INTENSITY = 'medium'
 
 // ── DESIGN SYSTEM THEME TOKENS ──
+// Palette aliases → the app-wide design tokens in index.css. Keeping the D.*
+// shape lets every inline style below stay unchanged while the actual colors
+// come from ONE source of truth shared with every other page.
 const D = {
-  card:       '#1a1a24',
-  cardBorder: 'rgba(42,42,58,0.8)',
-  cardHover:  '#22222e',
-  text:       '#ffffff',
-  textSoft:   '#8888aa',
-  textMuted:  '#55556a',
-  accent:     '#ff4d2e',
-  accentGlow: 'rgba(255,77,46,0.12)',
-  accentBorder:'rgba(255,77,46,0.35)',
-  success:    '#2dd4bf',
-  radius:     12,
+  card:       'var(--bg-card)',
+  cardBorder: 'var(--border)',
+  cardHover:  'var(--bg-hover)',
+  text:       'var(--text-primary)',
+  textSoft:   'var(--text-secondary)',
+  textMuted:  'var(--text-muted)',
+  accent:     'var(--accent)',
+  accentGlow: 'var(--accent-glow)',
+  accentBorder:'var(--accent-border)',
+  success:    'var(--teal)',
+  radius:     'var(--radius-btn)',
 }
 
 // ── AUTO OVERLAY DETECTION (OCR) ──
@@ -349,7 +352,7 @@ export default function RepurposePage() {
         </div>
 
         <h2 style={{ margin: '0 0 10px', fontSize: 24, fontWeight: 800, color: D.text, letterSpacing: 0 }}>
-          🎬 Clips are being generated!
+          Clips are being generated
         </h2>
         <p style={{ margin: '0 0 8px', fontSize: 15, color: D.textSoft, lineHeight: 1.75 }}>
           Your video is processing in the background.<br />
