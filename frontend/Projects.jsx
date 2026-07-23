@@ -731,7 +731,7 @@ function RepurposeProjectCard({ project, onEdit, onDelete, selectable = false, s
           text_hidden: false,
           text_align: preview.align,
           text_style: 'plain',
-          text_color: '#ffffff',
+          text_color: textColor, // contrast-aware: dark text on white/light backgrounds
           font_size: preview.fontSize,
           video_transform: {
             scale: 1, ox: 0, oy: 0,

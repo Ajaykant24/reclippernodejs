@@ -103,6 +103,16 @@ function isDarkHexColor(value) {
   return ((r * 299 + g * 587 + b * 114) / 1000) < 90
 }
 
+// True when a hex color is light enough that overlay text should be dark for contrast.
+function isLightHexColor(value) {
+  const hex = String(value || '').replace('#', '').trim()
+  if (!/^[0-9a-fA-F]{6}$/.test(hex)) return false
+  const r = parseInt(hex.slice(0, 2), 16)
+  const g = parseInt(hex.slice(2, 4), 16)
+  const b = parseInt(hex.slice(4, 6), 16)
+  return (0.299 * r + 0.587 * g + 0.114 * b) / 255 > 0.6
+}
+
 function makeOverlayImage({ lines, textBox, fontSize, color, align, style, shadow, logoImg, logoLeft, logoTop, logoSize }) {
   // Generates transparent watermark PNG overlays inside browser canvas, matching editorial designs on screen.
   if (!lines?.length && !logoImg) return ''
@@ -923,12 +933,14 @@ export default function Editor() {
   }, [logo, pb.h, pb.l, pb.t, pb.w])
 
   useEffect(() => {
-    if (bgType === 'white') {
+    // Auto-contrast: a white or light background needs dark text; anything else
+    // flips back to white (unless the user picked a specific color themselves).
+    if (bgType === 'white' || (bgType === 'custom' && isLightHexColor(bgCustomColor))) {
       setTextColor('#111827')
     } else if (textColor === '#111827') {
       setTextColor('#ffffff')
     }
-  }, [bgType])
+  }, [bgType, bgCustomColor])
 
   // ── AUDIBLE WEB BOOSTER VOLUME WORKFLOWS (WEB AUDIO API) ──
   // - Purpose: Allows increasing audio volume beyond 100% (boosts up to 200%) directly inside browser elements.
