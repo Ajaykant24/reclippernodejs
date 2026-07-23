@@ -364,16 +364,34 @@ app.get('/projects/library', (req, res) => {
   res.json({ projects })
 })
 
+// Best-effort removal of a deleted project's clip/thumb files from disk — without
+// this, deletes only drop the JSON record and the videos leak storage forever.
+// basename() strips any path segments so only files directly in CLIPS_DIR can go.
+function removeProjectFiles(project) {
+  for (const clip of project?.clips || []) {
+    for (const url of [clip.clip_url, clip.thumb_url]) {
+      const name = path.basename(String(url || ''))
+      if (!name || name === '.' || name === '..') continue
+      try { fs.unlinkSync(path.join(CLIPS_DIR, name)) } catch { /* already gone */ }
+    }
+  }
+}
+
 app.delete('/projects/:projectId', (req, res, next) => {
   try {
     const user = getCurrentUserFromToken(req.get('authorization'), req.headers.cookie)
     const projects = readJson(PROJECTS_FILE, [])
-    const kept = projects.filter(project => !(
-      project.project_id === req.params.projectId
-      && (project.user_id == null || project.user_id === user.user_id)
-    ))
-    if (kept.length === projects.length) throw httpError(404, 'Project not found')
+    const kept = []
+    const removed = []
+    for (const project of projects) {
+      const canDelete = project.project_id === req.params.projectId
+        && (project.user_id == null || project.user_id === user.user_id)
+      if (canDelete) removed.push(project)
+      else kept.push(project)
+    }
+    if (!removed.length) throw httpError(404, 'Project not found')
     writeJson(PROJECTS_FILE, kept)
+    removed.forEach(removeProjectFiles)
     res.json({ deleted: req.params.projectId })
   } catch (error) {
     next(error)
@@ -384,15 +402,17 @@ app.post('/projects/bulk-delete', (req, res) => {
   const user = getCurrentUserFromToken(req.get('authorization'), req.headers.cookie)
   const wanted = new Set(req.body.project_ids || [])
   const deleted = []
+  const removedProjects = []
   const kept = []
   for (const project of readJson(PROJECTS_FILE, [])) {
     const canDelete = wanted.has(project.project_id) && (
       project.user_id == null || project.user_id === user.user_id
     )
-    if (canDelete) deleted.push(project.project_id)
+    if (canDelete) { deleted.push(project.project_id); removedProjects.push(project) }
     else kept.push(project)
   }
   writeJson(PROJECTS_FILE, kept)
+  removedProjects.forEach(removeProjectFiles)
   res.json({ deleted })
 })
 
@@ -630,9 +650,15 @@ if (require.main === module) {
   }
 
   const port = Number(process.env.PORT || 8000)
-  app.listen(port, '0.0.0.0', () => {
+  const server = app.listen(port, '0.0.0.0', () => {
     console.log(`Reclipper API listening on port ${port}`)
   })
+  // Phone uploads on slow networks can take far longer than Node's ~5-minute
+  // default request timeout, which was killing them mid-upload ("backend
+  // connection problem" reports). Disable the per-request ceiling — nginx in
+  // front already enforces its own 1-hour proxy timeouts.
+  server.requestTimeout = 0
+  server.headersTimeout = 120000
 }
 
 module.exports = {

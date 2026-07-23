@@ -24,6 +24,34 @@ const upload = multer({
   limits: { fileSize: 500 * 1024 * 1024 },
 })
 const JOBS = {}
+
+// ── PIPELINE QUEUE ──
+// Each pipeline spawns several CPU/RAM-heavy ffmpeg passes. Without a cap, N clippers
+// uploading at once meant N parallel pipelines thrashing the VPS — every job slowed to
+// a crawl. Jobs beyond the cap stay status 'queued' and start as running slots free up.
+const MAX_CONCURRENT_PIPELINES = 2
+const pipelineQueue = []
+let runningPipelines = 0
+
+function enqueuePipeline(startFn) {
+  pipelineQueue.push(startFn)
+  drainPipelineQueue()
+}
+
+function drainPipelineQueue() {
+  while (runningPipelines < MAX_CONCURRENT_PIPELINES && pipelineQueue.length) {
+    const startFn = pipelineQueue.shift()
+    runningPipelines++
+    Promise.resolve()
+      .then(startFn)
+      .catch(() => {}) // per-job errors are already handled inside startFn
+      .finally(() => {
+        runningPipelines--
+        drainPipelineQueue()
+      })
+  }
+}
+
 const BASE_DIR = __dirname
 const STORAGE_DIR = process.env.STORAGE_DIR || BASE_DIR
 const OUTPUT_DIR = path.join(STORAGE_DIR, 'repurpose_outputs')
@@ -245,7 +273,7 @@ router.post('/', upload.fields([
     }
     updateJob(jobId, JOBS[jobId])
 
-    setImmediate(() => {
+    enqueuePipeline(() =>
       runPipeline(
         jobId,
         videoPath,
@@ -265,7 +293,7 @@ router.post('/', upload.fields([
         console.error(`[repurpose_v2] Unhandled error for ${jobId}:`, error)
         try { fs.rmSync(workDir, { recursive: true, force: true }) } catch {}
       })
-    })
+    )
 
     res.json({ job_id: jobId })
   } catch (error) {

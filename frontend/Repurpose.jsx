@@ -152,6 +152,8 @@ export default function RepurposePage() {
   const [dragOver, setDragOver] = useState(false) // Tracks if user is holding a drag-file over upload zone
   const [error, setError] = useState('')
   const [submitting, setSubmitting] = useState(false) // Blocks clicks during pending uploads
+  const [uploadPct, setUploadPct] = useState(0)       // Real upload progress (0-100)
+  const [uploadNote, setUploadNote] = useState('')    // Retry/status note under the progress bar
 
   // Settings customizer states — seeded from the saved default background (if any),
   // so every new clip starts with the clipper's own preferred canvas.
@@ -277,18 +279,42 @@ export default function RepurposePage() {
   const handleFileSelect = f => {
     // Purpose: Invoked when a file is checked or dropped. Caches file and opens settings page.
     if (!f) return
+    // Reject over-limit files up front (the server caps uploads at 500MB) instead of
+    // letting a phone upload for an hour and then fail.
+    if (f.size > 500 * 1024 * 1024) {
+      setError('This video is over 500MB. Trim or compress it first, then upload again.')
+      return
+    }
+    setError('')
     setFile(f)
     setPhase('settings')
     autoDetectOverlay(f) // best-effort: pre-fills the overlay input from the video itself
   }
 
+  // Low-end phones (≤4 cores / ≤4GB RAM) can freeze running wasm OCR on top of video
+  // decode — and the multi-MB OCR download competes with the upcoming upload for
+  // bandwidth. On weak devices or huge files, skip auto-OCR; typing still works.
+  const shouldSkipAutoOcr = f => {
+    const cores = Number(navigator.hardwareConcurrency || 0)
+    const memGb = Number(navigator.deviceMemory || 0)
+    if (cores > 0 && cores <= 4) return true
+    if (memGb > 0 && memGb <= 4) return true
+    if (f.size > 200 * 1024 * 1024) return true
+    return false
+  }
+
   const autoDetectOverlay = async f => {
     // Purpose: OCR the selected video in the browser and pre-fill "Custom Overlay Text"
     // so clippers don't have to retype the original video's on-screen hook.
+    if (shouldSkipAutoOcr(f)) return
     const jobId = ++ocrJobRef.current
     setOcrStatus('reading')
     try {
-      const text = await detectOverlayTextFromVideo(f)
+      // Hard 20s ceiling — OCR must never hang the create flow on a slow device.
+      const text = await Promise.race([
+        detectOverlayTextFromVideo(f),
+        new Promise((_, reject) => setTimeout(() => reject(new Error('ocr timeout')), 20000)),
+      ])
       if (ocrJobRef.current !== jobId) return // a newer file was picked — drop this result
       if (text && !overlayValRef.current.trim()) { // never overwrite what the clipper typed
         setOriginalOverlay(text)
@@ -299,10 +325,14 @@ export default function RepurposePage() {
   }
 
   const startProcessing = async () => {
-    // Purpose: packages layout selections into a Multipart Form request and posts to FastAPI.
+    // Purpose: packages layout selections into a Multipart Form request and posts to the backend.
+    // The job only exists on the server AFTER the whole video finishes uploading, so the UI
+    // must keep the user on the page (with real progress) until the request returns.
     setError('')
     setSubmitting(true)
-    
+    setUploadPct(0)
+    setUploadNote('')
+
     // Builds raw form parameters
     const fd = new FormData()
     fd.append('video', file)
@@ -315,15 +345,45 @@ export default function RepurposePage() {
     fd.append('original_overlay', originalOverlay.trim())
     fd.append('text_align', textAlign)
 
-    try {
-      // Calls V2 backend endpoint
-      await api.post('/api/v2/repurpose', fd)
-      setPhase('queued') // Show success checkmarks
-      // Redirects user back to Projects folder dashboard after 2.8 seconds
-      setTimeout(() => nav('/projects'), 2800)
-    } catch (e) {
-      setError(e?.response?.data?.detail ?? e.message)
-      setSubmitting(false)
+    // Slow networks drop connections mid-upload; a failed upload never created a job,
+    // so retrying is always safe. Two retries with short backoff cover most blips.
+    const MAX_ATTEMPTS = 3
+    for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+      let progressed = false
+      try {
+        await api.post('/api/v2/repurpose', fd, {
+          onUploadProgress: evt => {
+            if (evt.total) {
+              progressed = true
+              setUploadPct(Math.min(99, Math.round((evt.loaded / evt.total) * 100)))
+            }
+          },
+        })
+        setUploadPct(100)
+        setPhase('queued') // Show success checkmarks — NOW it's safe to leave
+        setTimeout(() => nav('/projects'), 2800)
+        return
+      } catch (e) {
+        const serverDetail = e?.response?.data?.detail || e?.response?.data?.error
+        const isNetworkFailure = !e?.response // no HTTP response = connection-level problem
+        if (isNetworkFailure && attempt < MAX_ATTEMPTS) {
+          setUploadNote(`Connection dropped — retrying (attempt ${attempt + 1}/${MAX_ATTEMPTS})…`)
+          await new Promise(r => setTimeout(r, attempt * 2000))
+          continue
+        }
+        // Honest error messages: a mid-upload drop is the user's network, not a dead backend.
+        if (isNetworkFailure && progressed) {
+          setError('Upload interrupted — your internet connection dropped. No clips were created. Check your connection and hit Generate again.')
+        } else if (isNetworkFailure) {
+          setError(e.message) // never connected at all — keep the "cannot reach backend" hint
+        } else {
+          setError(serverDetail || e.message)
+        }
+        setSubmitting(false)
+        setUploadPct(0)
+        setUploadNote('')
+        return
+      }
     }
   }
 
@@ -453,7 +513,7 @@ export default function RepurposePage() {
         <div className="proj-header mobile-page-hero">
           <div>
             <h1 className="proj-heading">Long to Short</h1>
-            <p className="proj-subheading">Turn any video into viral short-form clips. Fire &amp; forget — no need to stay on the page.</p>
+            <p className="proj-subheading">Turn any video into viral short-form clips. Once the upload finishes, everything renders in the background.</p>
           </div>
         </div>
 
@@ -569,7 +629,7 @@ export default function RepurposePage() {
         <div className="proj-header mobile-page-hero">
           <div>
             <h1 className="proj-heading">Configure Output</h1>
-            <p className="proj-subheading">Choose your format, then hit Generate — you can leave the page immediately after.</p>
+            <p className="proj-subheading">Choose your format, then hit Generate. Keep the app open while it uploads — after that, you can leave.</p>
           </div>
           {/* Change video back-button */}
           <button onClick={reset} style={{
@@ -603,7 +663,7 @@ export default function RepurposePage() {
         }}>
           <span className="material-symbols-outlined" style={{ fontSize: 17, color: D.accent, fontVariationSettings: "'FILL' 1", flexShrink: 0 }}>rocket_launch</span>
           <span style={{ fontSize: 13, color: D.textSoft }}>
-            <strong style={{ color: D.text }}>Fire &amp; forget:</strong> Hit Generate, then close this tab. Clips appear in Projects when ready.
+            <strong style={{ color: D.text }}>Heads up:</strong> stay on this page until the upload finishes — then you can close the app. Clips appear in Projects when ready.
           </span>
         </div>
 
@@ -935,11 +995,27 @@ export default function RepurposePage() {
             }}
           >
             {submitting ? (
-              <><span className="material-symbols-outlined anim-spin" style={{ fontSize: 20 }}>progress_activity</span> Creating Project…</>
+              <><span className="material-symbols-outlined anim-spin" style={{ fontSize: 20 }}>progress_activity</span> Uploading {uploadPct}% — keep the app open</>
             ) : (
               <><span className="material-symbols-outlined" style={{ fontSize: 20 }}>rocket_launch</span> Generate Clips →</>
             )}
           </button>
+
+          {/* Live upload progress bar + retry note — visible only while uploading */}
+          {submitting ? (
+            <div style={{ marginTop: 12 }}>
+              <div style={{ height: 6, borderRadius: 99, background: 'rgba(32,26,20,0.08)', overflow: 'hidden' }}>
+                <div style={{
+                  height: '100%', width: `${uploadPct}%`, borderRadius: 99,
+                  background: `linear-gradient(90deg, ${D.accent}, ${D.success})`,
+                  transition: 'width 0.3s ease',
+                }} />
+              </div>
+              <div style={{ fontSize: 12, color: uploadNote ? D.accent : D.textMuted, paddingTop: 6, textAlign: 'center' }}>
+                {uploadNote || 'Stay on this page until the upload finishes — then clips render on the server even if you leave.'}
+              </div>
+            </div>
+          ) : null}
         </div>
 
       </div>

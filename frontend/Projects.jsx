@@ -985,6 +985,7 @@ export default function ProjectsPage() {
   const [selectMode, setSelectMode] = useState(false)            // Enables checkbox multi-select mode
   const [selectedProjectIds, setSelectedProjectIds] = useState(() => new Set()) // Set containing multi-checked project IDs
   const [bulkDeleting, setBulkDeleting] = useState(false)        // Tracks bulk deletion request status
+  const [confirmBulkDelete, setConfirmBulkDelete] = useState(false) // Bulk delete asks before wiping N projects
   const [downloadedClips, setDownloadedClips] = useState(() => {
     try {
       return new Set(JSON.parse(localStorage.getItem('downloadedClips') || '[]'))
@@ -1129,6 +1130,7 @@ export default function ProjectsPage() {
   const deleteSelectedProjects = async () => {
     const ids = Array.from(selectedProjectIds)
     if (!ids.length || bulkDeleting) return
+    setConfirmBulkDelete(false)
     setBulkDeleting(true)
     try {
       const { data } = await api.post('/projects/bulk-delete', { project_ids: ids })
@@ -1197,8 +1199,8 @@ export default function ProjectsPage() {
           
           {/* Checkbox selector mode click */}
           <button className={`btn btn-glass btn-sm project-select-mode-btn${selectMode ? ' active' : ''}`} type="button" onClick={toggleSelectMode} disabled={loading || projects.length === 0}>
-            <span className="material-symbols-outlined" style={{ fontSize: 16 }}>{selectMode ? 'close' : 'select_check_box'}</span>
-            {selectMode ? 'Cancel Select' : 'Select Projects'}
+            <span className="material-symbols-outlined" style={{ fontSize: 16 }}>{selectMode ? 'close' : 'edit_square'}</span>
+            {selectMode ? 'Done' : 'Edit'}
           </button>
           
           {/* New Project launch shortcut */}
@@ -1283,11 +1285,11 @@ export default function ProjectsPage() {
               {/* Select/Unselect visible projects inside the current tab */}
               <button className="btn btn-glass btn-sm" type="button" onClick={toggleSelectAllVisible} disabled={activeProjectIds.length === 0}>
                 <span className="material-symbols-outlined" style={{ fontSize: 16 }}>{allVisibleSelected ? 'check_box' : 'select_all'}</span>
-                {allVisibleSelected ? 'Clear Visible' : 'Select Visible'}
+                {allVisibleSelected ? 'Clear All' : 'Select All'}
               </button>
               
               {/* Red batch delete button (shows amount checked inside braces, e.g. "Delete Selected (3)") */}
-              <button className="btn btn-danger btn-sm" type="button" onClick={deleteSelectedProjects} disabled={selectedCount === 0 || bulkDeleting}>
+              <button className="btn btn-danger btn-sm" type="button" onClick={() => setConfirmBulkDelete(true)} disabled={selectedCount === 0 || bulkDeleting}>
                 <span className={`material-symbols-outlined${bulkDeleting ? ' anim-spin' : ''}`} style={{ fontSize: 16 }}>{bulkDeleting ? 'progress_activity' : 'delete'}</span>
                 {bulkDeleting ? 'Deleting...' : `Delete Selected${selectedCount ? ` (${selectedCount})` : ''}`}
               </button>
@@ -1403,6 +1405,28 @@ export default function ProjectsPage() {
         onConfirm={handleDeleteConfirm}
         onCancel={() => setDeleteTarget(null)}
       />
+
+      {/* Bulk delete confirmation — same .modal-* primitives as DeleteModal */}
+      {confirmBulkDelete && (
+        <div className="modal-backdrop" onClick={() => setConfirmBulkDelete(false)}>
+          <div className="modal-dialog" onClick={e => e.stopPropagation()}>
+            <div className="modal-icon">
+              <span className="material-symbols-outlined" style={{ fontSize: 32, color: 'var(--danger)' }}>delete_forever</span>
+            </div>
+            <h3 className="modal-title">Delete {selectedCount} project{selectedCount !== 1 ? 's' : ''}?</h3>
+            <p className="modal-desc">
+              This permanently removes the selected projects, their clips, and uploaded videos. This cannot be undone.
+            </p>
+            <div className="modal-actions">
+              <button className="btn btn-glass btn-sm" type="button" onClick={() => setConfirmBulkDelete(false)}>Cancel</button>
+              <button className="btn btn-danger btn-sm" type="button" onClick={deleteSelectedProjects}>
+                <span className="material-symbols-outlined" style={{ fontSize: 16 }}>delete</span>
+                Delete {selectedCount}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Redownload confirmation dialog — same .modal-* primitives as DeleteModal */}
       {redownloadConfirm && (
