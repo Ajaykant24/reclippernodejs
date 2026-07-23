@@ -182,13 +182,9 @@ function VideoPreviewCanvas({ file, bgType, bgCustomColor, blurOpacity, overlayT
         canvas.width = frame.width
         canvas.height = frame.height
 
-        // Draw the video frame
+        // Draw the video frame (without background overlay — background only appears
+        // in letterbox areas if using a specific ratio; with 'original' ratio, just frame + text)
         ctx.drawImage(frame, 0, 0)
-
-        // Apply background overlay
-        const bgColor = bgType === 'custom' ? bgCustomColor : bgType === 'white' ? '#ffffff' : bgType === 'blur' ? 'rgba(10, 10, 15, 0.4)' : '#0a0a0f'
-        ctx.fillStyle = bgColor
-        ctx.fillRect(0, 0, canvas.width, canvas.height)
 
         // Render overlay text if present
         if (overlayText && overlayText.trim()) {
