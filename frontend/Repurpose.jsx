@@ -178,28 +178,50 @@ function VideoPreviewCanvas({ file, bgType, bgCustomColor, blurOpacity, overlayT
         const canvas = canvasRef.current
         const ctx = canvas.getContext('2d')
 
-        // Set canvas size to match frame
-        canvas.width = frame.width
-        canvas.height = frame.height
+        // Create a mock canvas composition showing how the final output will look:
+        // Full canvas in 9:16 mobile ratio with background + centered video frame + text
+        const mockCanvasHeight = 600
+        const mockCanvasWidth = Math.round(mockCanvasHeight * 9 / 16)
+        canvas.width = mockCanvasWidth
+        canvas.height = mockCanvasHeight
 
-        // Draw the video frame (without background overlay — background only appears
-        // in letterbox areas if using a specific ratio; with 'original' ratio, just frame + text)
-        ctx.drawImage(frame, 0, 0)
+        // Fill canvas with background color
+        const bgColor = bgType === 'custom' ? bgCustomColor : bgType === 'white' ? '#ffffff' : bgType === 'blur' ? '#1a1a22' : '#0a0a0f'
+        ctx.fillStyle = bgColor
+        ctx.fillRect(0, 0, canvas.width, canvas.height)
+
+        // Calculate video dimensions to fit in canvas while maintaining aspect ratio
+        const videoAspect = frame.width / frame.height
+        let videoW, videoH, videoX, videoY
+        if (videoAspect > canvas.width / canvas.height) {
+          // Video is wider — fit by width
+          videoW = canvas.width
+          videoH = videoW / videoAspect
+        } else {
+          // Video is taller — fit by height
+          videoH = canvas.height
+          videoW = videoH * videoAspect
+        }
+        videoX = (canvas.width - videoW) / 2
+        videoY = (canvas.height - videoH) / 2
+
+        // Draw the video frame centered on canvas (simulates smart crop positioning)
+        ctx.drawImage(frame, videoX, videoY, videoW, videoH)
 
         // Render overlay text if present
         if (overlayText && overlayText.trim()) {
           const textColor = isLightColor(bgColor) ? '#0a0a0f' : '#ffffff'
           const maxWidth = canvas.width * 0.85
-          const fontSize = Math.max(12, Math.round(canvas.height * 0.06))
+          const fontSize = Math.max(14, Math.round(canvas.height * 0.08))
 
           ctx.font = `${fontSize}px -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif`
           ctx.fillStyle = textColor
           ctx.textAlign = textAlign
-          ctx.textBaseline = 'top'
+          ctx.textBaseline = 'middle'
 
-          // Position text based on alignment
+          // Position text in center-bottom area
           let x = textAlign === 'center' ? canvas.width / 2 : textAlign === 'right' ? canvas.width * 0.9 : canvas.width * 0.1
-          const y = canvas.height * 0.5
+          const y = canvas.height * 0.65
 
           // Wrap text if needed
           const words = overlayText.split(' ')
@@ -220,7 +242,7 @@ function VideoPreviewCanvas({ file, bgType, bgCustomColor, blurOpacity, overlayT
 
           // Draw each line
           lines.forEach((l, i) => {
-            ctx.fillText(l, x, y + i * fontSize * 1.3)
+            ctx.fillText(l, x, y + i * fontSize * 1.5)
           })
         }
 
