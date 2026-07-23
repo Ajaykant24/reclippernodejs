@@ -22,6 +22,51 @@ export default function AdminPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [busyId, setBusyId] = useState('')
+  // Server self-update state (deploy without SSH)
+  const [serverVersion, setServerVersion] = useState('')
+  const [deployState, setDeployState] = useState('idle') // idle | confirm | deploying | waiting | done | failed
+  const [deployMsg, setDeployMsg] = useState('')
+
+  const fetchVersion = useCallback(async () => {
+    try {
+      const { data } = await api.get('/admin/version')
+      setServerVersion(data?.version || 'unknown')
+    } catch { setServerVersion('') /* old backend without the endpoint */ }
+  }, [])
+
+  useEffect(() => { fetchVersion() }, [fetchVersion])
+
+  const updateServer = async () => {
+    setDeployState('deploying')
+    setDeployMsg('Pulling the latest code on the server…')
+    try {
+      await api.post('/admin/deploy', {}, { timeout: 300000 })
+      // The server intentionally restarts right after answering — wait for it to come back.
+      setDeployState('waiting')
+      setDeployMsg('Server restarting with the new code…')
+      const deadline = Date.now() + 90000
+      while (Date.now() < deadline) {
+        await new Promise(r => setTimeout(r, 3000))
+        try {
+          await api.get('/health', { timeout: 4000 })
+          setDeployState('done')
+          setDeployMsg('Server updated and back online.')
+          fetchVersion()
+          return
+        } catch { /* still restarting */ }
+      }
+      setDeployState('failed')
+      setDeployMsg('Server did not come back within 90s — check it when you can.')
+    } catch (err) {
+      if (err?.response?.status === 404) {
+        setDeployState('failed')
+        setDeployMsg('This server does not have self-update yet — one manual deploy is needed first.')
+      } else {
+        setDeployState('failed')
+        setDeployMsg(err?.response?.data?.detail || err?.response?.data?.step || err.message || 'Update failed.')
+      }
+    }
+  }
 
   const load = useCallback(async () => {
     setError('')
@@ -69,6 +114,43 @@ export default function AdminPage() {
       </div>
 
       {error ? <div className="error-box" style={{ marginBottom: 16 }}>{error}</div> : null}
+
+      {/* ── SERVER PANEL: version + one-tap self-update (no SSH needed) ── */}
+      <div className="surface" style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap', padding: '14px 16px', marginBottom: 18 }}>
+        <div style={{ flex: 1, minWidth: 200 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <span className="material-symbols-outlined" style={{ fontSize: 20, color: 'var(--teal)' }}>cloud_done</span>
+            <strong style={{ fontSize: 14 }}>Backend server</strong>
+          </div>
+          <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 4 }}>
+            {serverVersion
+              ? <>Running: <code style={{ fontSize: 11 }}>{serverVersion}</code></>
+              : 'Self-update not installed yet — one manual deploy activates it.'}
+          </div>
+          {deployMsg ? (
+            <div style={{
+              fontSize: 12, marginTop: 6, fontWeight: 600,
+              color: deployState === 'failed' ? 'var(--danger)' : deployState === 'done' ? 'var(--ok)' : 'var(--accent)',
+            }}>{deployMsg}</div>
+          ) : null}
+        </div>
+        {deployState === 'confirm' ? (
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button className="btn btn-glass btn-sm" onClick={() => setDeployState('idle')}>Cancel</button>
+            <button className="btn btn-accent btn-sm" onClick={updateServer}>Yes, update now</button>
+          </div>
+        ) : (
+          <button
+            className="btn btn-accent btn-sm"
+            disabled={!serverVersion || deployState === 'deploying' || deployState === 'waiting'}
+            onClick={() => setDeployState('confirm')}
+          >
+            {(deployState === 'deploying' || deployState === 'waiting')
+              ? <><span className="material-symbols-outlined anim-spin" style={{ fontSize: 16 }}>progress_activity</span> Updating…</>
+              : <><span className="material-symbols-outlined" style={{ fontSize: 16 }}>cloud_upload</span> Update Server</>}
+          </button>
+        )}
+      </div>
 
       {loading ? (
         /* SKELETON ROWS: hold the list layout while users load — no bare "Loading…" text. */

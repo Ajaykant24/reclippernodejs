@@ -348,6 +348,37 @@ function setUserStatus(req, res, nextStatus) {
 app.post('/admin/users/:id/approve', asyncRoute(async (req, res) => setUserStatus(req, res, 'approved')))
 app.post('/admin/users/:id/reject', asyncRoute(async (req, res) => setUserStatus(req, res, 'rejected')))
 
+// ── SELF-DEPLOY (admin only) ──
+// Lets the admin update the server from the Admin panel without SSH:
+// pulls the latest main branch, installs dependencies, then exits the process —
+// systemd (Restart=always) immediately brings it back up running the new code.
+// Only fixed commands run here; nothing from the request is ever executed.
+const REPO_DIR = path.resolve(BASE_DIR, '..')
+
+app.get('/admin/version', asyncRoute(async (req, res) => {
+  requireAdmin(req.get('authorization'))
+  execFile('git', ['-C', REPO_DIR, 'log', '-1', '--format=%h %s (%cr)'], (err, stdout) => {
+    res.json({ version: err ? 'unknown' : String(stdout).trim() })
+  })
+}))
+
+app.post('/admin/deploy', asyncRoute(async (req, res) => {
+  requireAdmin(req.get('authorization'))
+  execFile('git', ['-C', REPO_DIR, 'pull', 'origin', 'main'], { timeout: 120000 }, (pullErr, pullOut, pullErrOut) => {
+    if (pullErr) {
+      return res.status(500).json({ ok: false, step: 'git pull', detail: String(pullErrOut || pullErr.message).slice(0, 500) })
+    }
+    execFile('npm', ['--prefix', BASE_DIR, 'install', '--omit=dev'], { timeout: 300000 }, (npmErr, npmOut, npmErrOut) => {
+      if (npmErr) {
+        return res.status(500).json({ ok: false, step: 'npm install', detail: String(npmErrOut || npmErr.message).slice(0, 500) })
+      }
+      res.json({ ok: true, detail: String(pullOut).trim().slice(0, 300), restarting: true })
+      // Give the response time to flush, then exit — systemd restarts us on the new code.
+      setTimeout(() => process.exit(0), 800)
+    })
+  })
+}))
+
 app.get('/projects', (req, res) => {
   const user = getCurrentUserFromToken(req.get('authorization'), req.headers.cookie)
   const projects = readJson(PROJECTS_FILE, []).filter(project => (
