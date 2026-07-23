@@ -283,14 +283,29 @@ export default function RepurposePage() {
     return `#${toHex(r)}${toHex(g)}${toHex(b)}`
   }
 
-  const handleColorSquareClick = (e) => {
+  // Set the color from a pointer position on the square (shared by click + drag).
+  const applyColorFromPointer = (clientX, clientY) => {
     if (!colorPickerRef.current) return
     const rect = colorPickerRef.current.getBoundingClientRect()
-    const x = (e.clientX - rect.left) / rect.width
-    const y = (e.clientY - rect.top) / rect.height
+    const x = (clientX - rect.left) / rect.width
+    const y = (clientY - rect.top) / rect.height
     const s = Math.max(0, Math.min(1, x))
     const v = Math.max(0, Math.min(1, 1 - y))
     setBgCustomColor(hsvToHex(pickerHue, s, v))
+  }
+
+  // Press-and-drag on the square: update the color continuously while dragging so
+  // the marker follows the finger/cursor to the exact color (no more blind clicking).
+  const handleColorSquarePointerDown = (e) => {
+    e.preventDefault()
+    applyColorFromPointer(e.clientX, e.clientY)
+    const move = ev => applyColorFromPointer(ev.clientX, ev.clientY)
+    const up = () => {
+      window.removeEventListener('pointermove', move)
+      window.removeEventListener('pointerup', up)
+    }
+    window.addEventListener('pointermove', move)
+    window.addEventListener('pointerup', up)
   }
 
   // ── WORKFLOW LOGIC ──
@@ -818,7 +833,7 @@ export default function RepurposePage() {
                     {/* Color square */}
                     <div
                       ref={colorPickerRef}
-                      onClick={handleColorSquareClick}
+                      onPointerDown={handleColorSquarePointerDown}
                       style={{
                         width: '100%', height: 200, marginBottom: 12, borderRadius: 6, cursor: 'crosshair',
                         // Layer order matters: the black fade must be the FIRST layer (painted on
@@ -826,8 +841,27 @@ export default function RepurposePage() {
                         background: `linear-gradient(to top, black, transparent),
                                     linear-gradient(to right, white, hsl(${pickerHue}, 100%, 50%))`,
                         border: `1px solid ${D.cardBorder}`, position: 'relative',
+                        touchAction: 'none', userSelect: 'none',
                       }}
-                    />
+                    >
+                      {/* Draggable marker showing the exact selected color's position */}
+                      {(() => {
+                        const hsv = hexToHsv(bgCustomColor)
+                        return (
+                          <div style={{
+                            position: 'absolute',
+                            left: `${hsv.s * 100}%`,
+                            top: `${(1 - hsv.v) * 100}%`,
+                            width: 18, height: 18, marginLeft: -9, marginTop: -9,
+                            borderRadius: '50%',
+                            background: bgCustomColor,
+                            border: '2px solid #fff',
+                            boxShadow: '0 0 0 1px rgba(0,0,0,0.55), 0 1px 4px rgba(0,0,0,0.45)',
+                            pointerEvents: 'none',
+                          }} />
+                        )
+                      })()}
+                    </div>
 
                     {/* Hue slider */}
                     <div style={{ marginBottom: 12 }}>
