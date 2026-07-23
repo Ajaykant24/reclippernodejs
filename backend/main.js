@@ -616,10 +616,11 @@ app.post('/export/preview', asyncRoute(async (req, res) => {
     args.push('-filter:a', `volume=${payload.volume}`)
   }
 
-  // Export quality: crf 18 (near-visually-lossless) with the 'medium' preset keeps
-  // burned-in text sharp and minimizes generational loss over the crf-19 creation
-  // encode. Previously crf 22/veryfast, which visibly softened text edges.
-  args.push('-c:v', 'libx264', '-preset', 'medium', '-crf', '18')
+  // Export quality: crf 18 (near-visually-lossless) keeps burned-in text sharp and
+  // minimizes generational loss over the crf-19 creation encode. The 'fast' preset
+  // retains edge detail far better than the old 'veryfast' while encoding much
+  // quicker than 'medium' — a balanced speed/quality point.
+  args.push('-c:v', 'libx264', '-preset', 'fast', '-crf', '18')
   if (changesAudio) {
     args.push('-c:a', 'aac', '-b:a', '128k')
   } else {
