@@ -665,13 +665,23 @@ export default function RepurposePage() {
             so you can confirm it's the right video (not just read a file name). */}
         <div style={{ ...darkCard({ padding: 0 }), overflow: 'hidden', marginBottom: 10 }}>
           {fileUrl ? (
-            <video
-              src={fileUrl}
-              controls
-              playsInline
-              preload="metadata"
-              style={{ width: '100%', maxHeight: 320, display: 'block', background: '#000', objectFit: 'contain' }}
-            />
+            /* 9:16 vertical frame — shows the exact mobile shape you'll get, with the
+               video center-cropped to fill it (approximates the smart-crop output). */
+            <div style={{
+              position: 'relative', width: '100%', maxWidth: 300, margin: '0 auto',
+              aspectRatio: '9 / 16', background: '#000',
+            }}>
+              <video
+                src={fileUrl}
+                controls
+                playsInline
+                preload="metadata"
+                style={{
+                  position: 'absolute', inset: 0, width: '100%', height: '100%',
+                  display: 'block', background: '#000', objectFit: 'cover',
+                }}
+              />
+            </div>
           ) : null}
           {/* File name + size caption under the player */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 16px', borderTop: `1px solid ${D.cardBorder}` }}>
