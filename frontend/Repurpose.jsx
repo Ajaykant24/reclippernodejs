@@ -7,7 +7,7 @@
 //   4. Asynchronous FormData queries uploading raw video streams to Python.
 // - Editing Tip: To change form labels or instructions, edit the text inside the `<h1>`, `<p>`, and section label fields below.
 
-import { useState, useRef } from 'react'
+import { useState, useRef, useMemo, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { api } from './api/client'
 
@@ -52,6 +52,15 @@ function loadDefaultBg() {
   } catch {
     return null
   }
+}
+
+// HELPER: is a hex color light enough that overlay text should be black on it?
+function isLightColor(hex) {
+  const h = String(hex || '').replace('#', '')
+  const r = parseInt(h.slice(0, 2), 16) || 0
+  const g = parseInt(h.slice(2, 4), 16) || 0
+  const b = parseInt(h.slice(4, 6), 16) || 0
+  return (0.299 * r + 0.587 * g + 0.114 * b) / 255 > 0.6
 }
 
 // ── INTENSITY MODIFIERS ──
@@ -139,6 +148,136 @@ async function detectOverlayTextFromVideo(file) {
   } finally {
     URL.revokeObjectURL(url)
   }
+}
+
+// ── VIDEO PREVIEW COMPONENT ──
+// Live preview showing the video frame with background and overlay text applied,
+// updating in real-time as the user adjusts settings.
+function VideoPreviewCanvas({ file, bgType, bgCustomColor, blurOpacity, overlayText, textAlign }) {
+  const canvasRef = useRef(null)
+
+  // Recalculate and render preview whenever any setting changes
+  useEffect(() => {
+    if (!file || !canvasRef.current) return
+
+    const renderPreview = async () => {
+      try {
+        const url = URL.createObjectURL(file)
+        const video = document.createElement('video')
+        video.muted = true
+        video.preload = 'auto'
+        video.src = url
+
+        await new Promise((resolve, reject) => {
+          video.addEventListener('loadedmetadata', resolve, { once: true })
+          video.addEventListener('error', () => reject(new Error('video load failed')), { once: true })
+        })
+
+        // Extract frame at middle of video
+        const frame = await grabVideoFrame(video, video.duration / 2)
+        const canvas = canvasRef.current
+        const ctx = canvas.getContext('2d')
+
+        // Set canvas size to match frame
+        canvas.width = frame.width
+        canvas.height = frame.height
+
+        // Draw the video frame
+        ctx.drawImage(frame, 0, 0)
+
+        // Apply background overlay
+        const bgColor = bgType === 'custom' ? bgCustomColor : bgType === 'white' ? '#ffffff' : bgType === 'blur' ? 'rgba(10, 10, 15, 0.4)' : '#0a0a0f'
+        ctx.fillStyle = bgColor
+        ctx.fillRect(0, 0, canvas.width, canvas.height)
+
+        // Render overlay text if present
+        if (overlayText && overlayText.trim()) {
+          const textColor = isLightColor(bgColor) ? '#0a0a0f' : '#ffffff'
+          const maxWidth = canvas.width * 0.85
+          const fontSize = Math.max(12, Math.round(canvas.height * 0.06))
+
+          ctx.font = `${fontSize}px -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif`
+          ctx.fillStyle = textColor
+          ctx.textAlign = textAlign
+          ctx.textBaseline = 'top'
+
+          // Position text based on alignment
+          let x = textAlign === 'center' ? canvas.width / 2 : textAlign === 'right' ? canvas.width * 0.9 : canvas.width * 0.1
+          const y = canvas.height * 0.5
+
+          // Wrap text if needed
+          const words = overlayText.split(' ')
+          let line = ''
+          const lines = []
+
+          for (const word of words) {
+            const testLine = line ? `${line} ${word}` : word
+            const metrics = ctx.measureText(testLine)
+            if (metrics.width > maxWidth && line) {
+              lines.push(line)
+              line = word
+            } else {
+              line = testLine
+            }
+          }
+          if (line) lines.push(line)
+
+          // Draw each line
+          lines.forEach((l, i) => {
+            ctx.fillText(l, x, y + i * fontSize * 1.3)
+          })
+        }
+
+        URL.revokeObjectURL(url)
+      } catch (err) {
+        console.error('Preview render failed:', err)
+      }
+    }
+
+    renderPreview()
+  }, [file, bgType, bgCustomColor, blurOpacity, overlayText, textAlign])
+
+  return (
+    <div style={{ marginBottom: 28 }}>
+      <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', marginBottom: 12, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+        Preview
+      </div>
+      {file ? (
+        <div style={{
+          borderRadius: 8,
+          background: 'var(--bg-card)',
+          border: '1px solid var(--border)',
+          overflow: 'hidden',
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          minHeight: 200,
+          maxHeight: 300,
+        }}>
+          <canvas
+            ref={canvasRef}
+            style={{
+              maxWidth: '100%',
+              maxHeight: '100%',
+              display: 'block',
+            }}
+          />
+        </div>
+      ) : (
+        <div style={{
+          borderRadius: 8,
+          background: 'var(--bg-card)',
+          border: '1px solid var(--border)',
+          padding: '32px 24px',
+          textAlign: 'center',
+          color: 'var(--text-muted)',
+        }}>
+          <span className="material-symbols-outlined" style={{ fontSize: 40, display: 'block', marginBottom: 12, opacity: 0.5 }}>preview</span>
+          Select a video to see preview
+        </div>
+      )}
+    </div>
+  )
 }
 
 export default function RepurposePage() {
@@ -975,6 +1114,16 @@ export default function RepurposePage() {
               ))}
             </div>
           </div>
+
+          {/* LIVE PREVIEW — shows video with background and overlay text as user adjusts settings */}
+          <VideoPreviewCanvas
+            file={file}
+            bgType={bgType}
+            bgCustomColor={bgCustomColor}
+            blurOpacity={blurOpacity}
+            overlayText={originalOverlay}
+            textAlign={textAlign}
+          />
 
           {/* 3. PRIMARY GENERATE CLIPS SUBMIT BUTTON */}
           <button
