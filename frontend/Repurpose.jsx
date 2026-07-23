@@ -178,60 +178,35 @@ function VideoPreviewCanvas({ file, bgType, bgCustomColor, blurOpacity, overlayT
         const canvas = canvasRef.current
         const ctx = canvas.getContext('2d')
 
-        // Create a mock canvas composition showing how the final output will look:
-        // Full canvas in 9:16 mobile ratio with background + centered video frame + text
-        const mockCanvasHeight = 600
-        const mockCanvasWidth = Math.round(mockCanvasHeight * 9 / 16)
-        canvas.width = mockCanvasWidth
-        canvas.height = mockCanvasHeight
+        // The Create page produces 'original' ratio clips: the output is the video
+        // itself with the overlay text burned on top (no letterbox canvas). So the
+        // preview = the actual video frame at its native aspect + the text overlay,
+        // exactly like what you'll download.
+        canvas.width = frame.width
+        canvas.height = frame.height
+        ctx.drawImage(frame, 0, 0, canvas.width, canvas.height)
 
-        // Fill canvas with background color
-        const bgColor = bgType === 'custom' ? bgCustomColor : bgType === 'white' ? '#ffffff' : bgType === 'blur' ? '#1a1a22' : '#0a0a0f'
-        ctx.fillStyle = bgColor
-        ctx.fillRect(0, 0, canvas.width, canvas.height)
-
-        // Calculate video dimensions to fit in canvas while maintaining aspect ratio
-        const videoAspect = frame.width / frame.height
-        let videoW, videoH, videoX, videoY
-        if (videoAspect > canvas.width / canvas.height) {
-          // Video is wider — fit by width
-          videoW = canvas.width
-          videoH = videoW / videoAspect
-        } else {
-          // Video is taller — fit by height
-          videoH = canvas.height
-          videoW = videoH * videoAspect
-        }
-        videoX = (canvas.width - videoW) / 2
-        videoY = (canvas.height - videoH) / 2
-
-        // Draw the video frame centered on canvas (simulates smart crop positioning)
-        ctx.drawImage(frame, videoX, videoY, videoW, videoH)
-
-        // Render overlay text if present
+        // Render overlay text if present, matching the burned-in style
         if (overlayText && overlayText.trim()) {
-          const textColor = isLightColor(bgColor) ? '#0a0a0f' : '#ffffff'
-          const maxWidth = canvas.width * 0.85
-          const fontSize = Math.max(14, Math.round(canvas.height * 0.08))
+          const maxWidth = canvas.width * 0.9
+          const fontSize = Math.max(18, Math.round(canvas.height * 0.05))
 
-          ctx.font = `${fontSize}px -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif`
-          ctx.fillStyle = textColor
+          ctx.font = `700 ${fontSize}px -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif`
           ctx.textAlign = textAlign
           ctx.textBaseline = 'middle'
 
-          // Position text in center-bottom area
-          let x = textAlign === 'center' ? canvas.width / 2 : textAlign === 'right' ? canvas.width * 0.9 : canvas.width * 0.1
-          const y = canvas.height * 0.65
+          // Text hugs left/center/right with a margin, near the top third (typical hook position)
+          const margin = canvas.width * 0.05
+          const x = textAlign === 'center' ? canvas.width / 2 : textAlign === 'right' ? canvas.width - margin : margin
+          const startY = canvas.height * 0.18
 
-          // Wrap text if needed
+          // Wrap text to the available width
           const words = overlayText.split(' ')
           let line = ''
           const lines = []
-
           for (const word of words) {
             const testLine = line ? `${line} ${word}` : word
-            const metrics = ctx.measureText(testLine)
-            if (metrics.width > maxWidth && line) {
+            if (ctx.measureText(testLine).width > maxWidth && line) {
               lines.push(line)
               line = word
             } else {
@@ -240,9 +215,14 @@ function VideoPreviewCanvas({ file, bgType, bgCustomColor, blurOpacity, overlayT
           }
           if (line) lines.push(line)
 
-          // Draw each line
+          // White text with a dark stroke so it stays readable over any footage
           lines.forEach((l, i) => {
-            ctx.fillText(l, x, y + i * fontSize * 1.5)
+            const y = startY + i * fontSize * 1.25
+            ctx.lineWidth = Math.max(3, fontSize * 0.14)
+            ctx.strokeStyle = 'rgba(0,0,0,0.65)'
+            ctx.strokeText(l, x, y)
+            ctx.fillStyle = '#ffffff'
+            ctx.fillText(l, x, y)
           })
         }
 
@@ -311,6 +291,16 @@ export default function RepurposePage() {
   const [submitting, setSubmitting] = useState(false) // Blocks clicks during pending uploads
   const [uploadPct, setUploadPct] = useState(0)       // Real upload progress (0-100)
   const [uploadNote, setUploadNote] = useState('')    // Retry/status note under the progress bar
+
+  // Object URL for the uploaded file, so the settings screen can show the actual
+  // video in a playable box (not just its name). Revoked when the file changes/unmounts.
+  const [fileUrl, setFileUrl] = useState('')
+  useEffect(() => {
+    if (!file) { setFileUrl(''); return }
+    const url = URL.createObjectURL(file)
+    setFileUrl(url)
+    return () => URL.revokeObjectURL(url)
+  }, [file])
 
   // Settings customizer states — seeded from the saved default background (if any),
   // so every new clip starts with the clipper's own preferred canvas.
@@ -799,17 +789,26 @@ export default function RepurposePage() {
           </button>
         </div>
 
-        {/* Selected file confirmation bar: Shows name, and file size dynamically calculated in MB. */}
-        <div style={{
-          ...darkCard({ padding: '11px 18px', borderColor: 'rgba(45,212,191,0.28)', background: 'rgba(45,212,191,0.08)' }),
-          display: 'flex', alignItems: 'center', gap: 12,
-          marginBottom: 10
-        }}>
-          <span className="material-symbols-outlined" style={{ fontSize: 18, color: D.success, fontVariationSettings: "'FILL' 1", flexShrink: 0 }}>check_circle</span>
-          <span style={{ fontSize: 13, fontWeight: 600, color: D.text, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{file?.name}</span>
-          <span style={{ fontSize: 12, color: D.textMuted, flexShrink: 0 }}>
-            {file?.size ? `${(file.size / 1024 / 1024).toFixed(1)} MB` : ''}
-          </span>
+        {/* Uploaded video preview: the actual clip you selected, in a playable box —
+            so you can confirm it's the right video (not just read a file name). */}
+        <div style={{ ...darkCard({ padding: 0 }), overflow: 'hidden', marginBottom: 10 }}>
+          {fileUrl ? (
+            <video
+              src={fileUrl}
+              controls
+              playsInline
+              preload="metadata"
+              style={{ width: '100%', maxHeight: 320, display: 'block', background: '#000', objectFit: 'contain' }}
+            />
+          ) : null}
+          {/* File name + size caption under the player */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 16px', borderTop: `1px solid ${D.cardBorder}` }}>
+            <span className="material-symbols-outlined" style={{ fontSize: 18, color: D.success, fontVariationSettings: "'FILL' 1", flexShrink: 0 }}>check_circle</span>
+            <span style={{ fontSize: 13, fontWeight: 600, color: D.text, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{file?.name}</span>
+            <span style={{ fontSize: 12, color: D.textMuted, flexShrink: 0 }}>
+              {file?.size ? `${(file.size / 1024 / 1024).toFixed(1)} MB` : ''}
+            </span>
+          </div>
         </div>
 
         {/* Fire & forget safety alert box */}
