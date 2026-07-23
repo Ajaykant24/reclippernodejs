@@ -513,7 +513,12 @@ export default function Editor() {
   const [textHidden, setTextHidden] = useState(ep.textHidden ?? false)
   const [textAlign, setTextAlign] = useState(ep.textAlign ?? clip?.text_align ?? 'left')
   const [textStyle, setTextStyle] = useState(ep.textStyle ?? 'plain')
-  const [textColor, setTextColor] = useState(ep.textColor ?? '#ffffff')
+  const [textColor, setTextColor] = useState(
+    ep.textColor
+    ?? ((ep.bgType === 'white' || (ep.bgType === 'custom' && isLightHexColor(ep.bgCustomColor)))
+      ? '#111827'
+      : '#ffffff')
+  )
   const [fontSize, setFontSize] = useState(ep.fontSize ?? 20)
   const [textWidthPercent, setTextWidthPercent] = useState(ep.textWidthPercent ?? 96)
   const [textOffsetX, setTextOffsetX] = useState(ep.textOffsetX ?? 0)
@@ -870,8 +875,10 @@ export default function Editor() {
     // / the raw generation when a clip has never been edited).
     const nep = nextState.clip?.editor_payload || {}
     setRatio(inferClipRatio(nextState.clip, routeState))
-    setBgType(nep.bgType ?? routeState.bgType ?? nextState.clip?.background_type ?? 'black')
-    setBgCustomColor(nep.bgCustomColor ?? routeState.bgColor ?? nextState.clip?.background_color ?? '#111827')
+    const restoredBgType = nep.bgType ?? routeState.bgType ?? nextState.clip?.background_type ?? 'black'
+    const restoredBgColor = nep.bgCustomColor ?? routeState.bgColor ?? nextState.clip?.background_color ?? '#111827'
+    setBgType(restoredBgType)
+    setBgCustomColor(restoredBgColor)
     setBlurStrength(nep.blurStrength ?? (routeState.blurOpacity !== undefined ? Math.round(routeState.blurOpacity * 100) : 42))
     setVtx(nep.vtx ?? { ox: 0, oy: 0, scale: 1 })
     setTextDragPos(nep.textDragPos ?? null)
@@ -880,7 +887,14 @@ export default function Editor() {
     setTextHidden(nep.textHidden ?? false)
     setTextAlign(nep.textAlign ?? nextState.clip?.text_align ?? 'left')
     setTextStyle(nep.textStyle ?? 'plain')
-    setTextColor(nep.textColor ?? '#ffffff')
+    // Contrast-aware default: on a white/light background start with dark text so it's
+    // never white-on-white. A saved textColor (user's own pick) still wins. Setting it
+    // here (not just in the separate bgType effect) avoids an effect-ordering race that
+    // left the text white on load.
+    const autoTextColor = (restoredBgType === 'white' || (restoredBgType === 'custom' && isLightHexColor(restoredBgColor)))
+      ? '#111827'
+      : '#ffffff'
+    setTextColor(nep.textColor ?? autoTextColor)
     setFontSize(nep.fontSize ?? 20)
     setTextWidthPercent(nep.textWidthPercent ?? 96)
     setTextOffsetX(nep.textOffsetX ?? 0)
